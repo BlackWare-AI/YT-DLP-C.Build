@@ -20,9 +20,10 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Video segments:** add multiple start/end ranges, including ranges that end at the end of a video.
 - **Audio artwork:** optionally embed available thumbnails in audio files.
 - **Advanced settings:** customize download and cookies paths, request delays, and overwrite behavior.
+- **Link Notes:** a full-screen AMOLED notepad slides in from the left. Store links, preferred formats and custom requests as free text; every edit is saved immediately. Closing with × or Back keeps notes, and copying commands never clears them. The two equal action buttons are Link Notes on the left and Copy Command on the right.
 - **Command preview and copy:** inspect the complete shell command before using it.
 - **Local history:** review previous commands and export records as text.
-- **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, item selection, cuts and complete history. Cookies file contents are never read. This change adds export only.
+- **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, notes, unfinished input, item selection, cuts and complete history. Cookies file contents are never read. This change adds export only.
 - **Offline and private:** no analytics, ads, account login, or network access required by the app.
 - **AMOLED-friendly interface:** a minimal black design optimized for Android.
 
@@ -72,7 +73,7 @@ Actual downloading and any resulting errors are handled by yt-dlp when you run t
 
 ## Privacy and data
 
-Settings, drafts, and command history are stored locally on the device. Every draft edit is synchronously committed to Android SharedPreferences, so saved links survive backgrounding, process termination, crashes, and device restarts. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
+Settings, drafts, unfinished add-link input, notes, selections and complete history are stored locally. Every edit is synchronously saved. Android keeps two independent AtomicFile snapshots with SHA-256 checksums and monotonically increasing revisions, plus a synchronized SharedPreferences mirror. The newest valid copy is restored after interruption or damage; legacy preferences migrate automatically. If all copies are unreadable, saving is blocked rather than replacing them with empty defaults. Browser builds use two localStorage slots and recover the newest valid snapshot. Saved state survives backgrounding and process termination; clearing app data or uninstalling removes local data. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
 
 ## Building from source
 
@@ -81,7 +82,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.0.4`
+- Current documented version: `1.0.5`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -89,7 +90,11 @@ To build locally, use JDK 17, Android SDK 35, and the project's Gradle configura
 gradle :app:assembleDebug
 ```
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.4-debug`.
+Press Back twice within two seconds on the main screen to exit. Back first dismisses the keyboard or closes the open panel. Exiting is blocked if the final save fails.
+
+All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
+
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.5-debug`.
 
 Validation commands:
 

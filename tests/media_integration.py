@@ -93,8 +93,11 @@ def main():
             assert '--force-keyframes-at-cuts' not in cmd
             run(['bash','-n'],input=cmd,text=True)
             result=run(['bash','-c',cmd],env=env,text=True)
-            videos=sorted((output/'Video').glob('*-av-cut*.mp4'))
+            videos=sorted((output/'Video').glob('*.mp4'))
             assert len(videos)==9, result.stdout
+            import re
+            assert all(re.fullmatch(r'(?:account\.one|account\.two|fixture\.reel)-20261025-\d{4}-\d{2}\.mp4',p.name) for p in videos),[p.name for p in videos]
+            assert sorted(int(p.stem.rsplit('-',1)[1]) for p in videos)==list(range(1,10))
             assert len((folder/'invocations.jsonl').read_text().splitlines())==1
             assert len(list((output/'Video').glob('account.one-*')))==3
             assert len(list((output/'Video').glob('account.two-*')))==3
@@ -110,34 +113,35 @@ def main():
             before={p.name:(p.stat().st_mtime_ns,p.read_bytes()) for p in videos}
             run(['bash','-c',cmd],env=env,text=True)
             assert before=={p.name:(p.stat().st_mtime_ns,p.read_bytes()) for p in videos}
-            print('PASS: repeated command preserves existing files')
+            print('PASS: numbered multi-section files stay distinct and repeat no-overwrites preserves existing files')
             log=run(['bash','-c',command('audio')],env=env,text=True)
-            files=list((output/'Audio').glob('*-audio-best.m4a')); assert len(files)==1,log.stdout
+            files=list((output/'Audio').glob('*.m4a')); assert len(files)==1,log.stdout
             streams=probe(files[0])['streams']
             assert any(s['codec_type']=='audio' and s['codec_name']=='aac' for s in streams),streams
             assert any(s.get('disposition',{}).get('attached_pic')==1 for s in streams),streams
             assert 'fixture.user-20261025-' in files[0].name and '123456789' not in files[0].name
             print('PASS: best audio preserves AAC and embeds source cover without MP3 conversion')
             log=run(['bash','-c',command('video')],env=env,text=True)
-            files=list((output/'Video').glob('*-video.mp4')); assert len(files)==1,log.stdout
+            files=list((output/'Video').glob('fixture.user-*.mp4')); assert len(files)==1,log.stdout
             assert all(s['codec_type']!='audio' for s in probe(files[0])['streams'])
             print('PASS: explicit silent video contains no audio')
             log=run(['bash','-c',command('still')],env=env,text=True)
-            files=list((output/'SClip').glob('*-still-cut*.mp4')); assert len(files)==1,log.stdout
+            files=list((output/'SClip').glob('*.mp4')); assert len(files)==1,log.stdout
             meta=probe(files[0]); assert abs(float(meta['format']['duration'])-1)<0.2
             assert all(s['codec_type']!='audio' for s in meta['streams'])
             print('PASS: StillClip actual first second without audio; Video/Audio/SClip output routing')
             # With a better Opus source, best must select/preserve it rather than force AAC/MP3.
             best_folder=output/'best-opus';best_folder.mkdir()
             log=run(['bash','-c',command('audio',thumb=False).replace(str(output),str(best_folder))],env={**env,'FIXTURE_OPUS':'1'},text=True)
-            files=list((best_folder/'Audio').glob('*-audio-best.opus'));assert len(files)==1,log.stdout
+            files=list((best_folder/'Audio').glob('*.opus'));assert len(files)==1,log.stdout
             assert any(s['codec_name']=='opus' for s in probe(files[0])['streams'])
             print('PASS: better Opus source selected over AAC and retained as Opus')
             from yt_dlp import YoutubeDL
             with YoutubeDL({'quiet':True}) as ydl:
-                template='%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(id)s.%(ext)s'
+                template=run(['node','-e',"process.stdout.write(require('./engine').template())"],cwd=ROOT,text=True).stdout
+                ydl._num_downloads=1
                 name=ydl.evaluate_outtmpl(template,{'id':'501','ext':'mp4'})
-                assert name=='unknown-undated-0000-501.mp4',name
+                assert name=='unknown-undated-0000-01.mp4',name
             print('PASS: yt-dlp evaluates missing metadata without NA')
             # Feed synthetic collections through yt-dlp's real playlist processor.
             # The app still never contacts Instagram; these are local metadata fixtures.

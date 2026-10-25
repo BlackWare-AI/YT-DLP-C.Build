@@ -7,6 +7,9 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Rect;
+import android.os.SystemClock;
+import android.view.inputmethod.InputMethodManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,7 +36,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.FutureTask;
-import org.json.JSONObject;
 
 /** Only packaged assets are served. The app has no INTERNET/storage permissions. */
 public final class MainActivity extends Activity {
@@ -43,10 +45,13 @@ public final class MainActivity extends Activity {
     private WebView web;
     private SharedPreferences prefs;
     private boolean exporting;
+    private DurableStateStore stateStore;
+    private long lastBackAt;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("builder", MODE_PRIVATE);
+        stateStore = new DurableStateStore(getFilesDir(), prefs);
         exporting = savedInstanceState != null && savedInstanceState.getBoolean("exporting");
         getWindow().setStatusBarColor(Color.BLACK);
         getWindow().setNavigationBarColor(Color.BLACK);
@@ -118,14 +123,8 @@ public final class MainActivity extends Activity {
     }
 
     public final class Bridge {
-        @JavascriptInterface public String getState() { return prefs.getString("state", ""); }
-        @JavascriptInterface public boolean saveState(String value) {
-            try {
-                JSONObject state = new JSONObject(value);
-                state.getJSONObject("settings"); state.getJSONArray("cuts"); state.getJSONArray("history");
-                return prefs.edit().putString("state", value).commit();
-            } catch (Exception e) { return false; }
-        }
+        @JavascriptInterface public String getState() { return stateStore.read(); }
+        @JavascriptInterface public boolean saveState(String value) { return stateStore.save(value); }
         @JavascriptInterface public String readClipboard() {
             FutureTask<String> task = new FutureTask<>(() -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -193,11 +192,34 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> toast(done ? "TXT dosyası kaydedildi." : "TXT kaydedilemedi; yeniden deneyin."));
         }, "text-export").start();
     }
+    private boolean keyboardVisible() {
+        WindowInsets insets = web.getRootWindowInsets();
+        if (Build.VERSION.SDK_INT >= 30) return insets != null && insets.isVisible(WindowInsets.Type.ime());
+        Rect visible = new Rect();
+        getWindow().getDecorView().getWindowVisibleDisplayFrame(visible);
+        int height = getWindow().getDecorView().getRootView().getHeight();
+        return height - visible.bottom > height * 0.20;
+    }
     @Override public void onBackPressed() {
+        if (keyboardVisible()) {
+            lastBackAt = 0;
+            InputMethodManager keyboard = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (keyboard != null) keyboard.hideSoftInputFromWindow(web.getWindowToken(), 0);
+            return;
+        }
         web.evaluateJavascript("window.handleBack && window.handleBack()", result -> {
-            if (!"true".equals(result)) MainActivity.super.onBackPressed();
+            if ("true".equals(result)) { lastBackAt = 0; return; }
+            long now = SystemClock.elapsedRealtime();
+            if (lastBackAt != 0 && now - lastBackAt <= 2000) {
+                lastBackAt = 0;
+                web.evaluateJavascript("window.prepareExit && window.prepareExit()", saved -> {
+                    if ("true".equals(saved)) finish();
+                    else toast("Veriler kaydedilemedi; uygulama açık tutuldu.");
+                });
+            } else { lastBackAt = now; toast("Çıkmak için tekrar geri basın."); }
         });
     }
+    @Override protected void onPause() { lastBackAt = 0; super.onPause(); }
     @Override protected void onDestroy() {
         web.removeJavascriptInterface("Android"); web.destroy(); super.onDestroy();
     }

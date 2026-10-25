@@ -2,33 +2,49 @@
 const $ = id => document.getElementById(id);
 const native = window.Android;
 let state, storageError = '', copying = false;
+function validState(v) {
+  return v && typeof v.settings==='object' && v.settings && !Array.isArray(v.settings) &&
+    Array.isArray(v.history) && Array.isArray(v.cuts) && typeof v.links==='string' &&
+    (v.notes===undefined || typeof v.notes==='string') && (v.newLink===undefined || typeof v.newLink==='string');
+}
 function readState() {
   try {
-    const raw = native ? native.getState() : localStorage.getItem('builder.state');
-    if (raw) {
-      const v = JSON.parse(raw);
-      if (!v || !Array.isArray(v.history) || !Array.isArray(v.cuts) || !v.settings) throw Error('Kayıt yapısı geçersiz');
-      return v;
+    const raw=native ? [native.getState()] : [localStorage.getItem('builder.state'),localStorage.getItem('builder.state.backup')];
+    const candidates=[];
+    for(const value of raw) if(value) {
+      try {const v=JSON.parse(value);if(validState(v)) candidates.push(v);} catch(e) { /* Try the independent backup. */ }
     }
-    // Preserve the browser prototype's existing preferences and history.
-    return {settings:JSON.parse(localStorage.getItem('builder.settings') || '{}'),
+    if(candidates.length) return candidates.sort((a,b)=>(b.storageRevision || 0)-(a.storageRevision || 0))[0];
+    if(raw.some(Boolean)) throw Error('Geçerli ana kayıt veya yedek bulunamadı.');
+    const legacy={settings:JSON.parse(localStorage.getItem('builder.settings') || '{}'),
       links:'', cuts:[], history:JSON.parse(localStorage.getItem('builder.history') || '[]')};
-  } catch (e) {
-    storageError = 'Kayıtlı veriler okunamadı; mevcut kayıtların üzerine yazılmayacak. ' + e.message;
+    if(!validState(legacy)) throw Error('Eski kayıt yapısı geçersiz.');
+    return legacy;
+  } catch(e) {
+    storageError='Kayıtlı veriler okunamadı; mevcut kayıtların üzerine yazılmayacak. '+e.message;
     return {settings:{},links:'',cuts:[],history:[]};
   }
 }
-state = readState();
-state.settings = Builder.normalizeSettings(state.settings,state.schema);
+state=readState();
+state.settings=Builder.normalizeSettings(state.settings,state.schema);
 state.schema=2;
 state.selection={only:'',after:'',before:'',...state.selection};
+state.notes=state.notes===undefined ? '' : state.notes;
+state.newLink=state.newLink===undefined ? '' : state.newLink;
 function persist() {
-  if (storageError) throw Error(storageError);
-  const raw = JSON.stringify(state);
-  if (native) { if (!native.saveState(raw)) throw Error('Veriler kaydedilemedi.'); }
-  else localStorage.setItem('builder.state', raw);
+  if(storageError) throw Error(storageError);
+  if(native) {
+    if(!native.saveState(JSON.stringify(state))) throw Error('Veriler kaydedilemedi.');
+  } else {
+    state.storageRevision=Math.max(Date.now(),(state.storageRevision || 0)+1);
+    const raw=JSON.stringify(state);let saved=false;
+    for(const key of ['builder.state','builder.state.backup']) {
+      try {localStorage.setItem(key,raw);saved=true;} catch(e) { /* The other slot can still save. */ }
+    }
+    if(!saved) throw Error('Veriler kaydedilemedi.');
+  }
 }
-function save() { try { persist(); } catch (e) { $('status').textContent = e.message; } }
+function save() {try {persist();return true;} catch(e) {$('status').textContent=e.message;return false;}}
 function renderButtons() {
   for (const [id,key] of [['engines','engine'],['modes','mode']]) {
     for (const b of $(id).querySelectorAll('button')) {
@@ -71,7 +87,7 @@ function renderLinks(urls) {
     const link=document.createElement('small');link.textContent=url;link.title=url;
     meta.append(title,link);
     const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label','Bağlantı '+(i+1)+' sil');
-    remove.onclick=()=>{state.links=urls.filter((_,n)=>i!==n).join('\n');$('links').value=state.links;save();preview();};
+    remove.onclick=()=>{state.links=Builder.removeUrl(state.links,url);$('links').value=state.links;save();preview();};
     row.append(index,meta,remove);$('linkList').append(row);
   });
 }
@@ -100,7 +116,7 @@ function preview() {
   }
 }
 function hydrate() {
-  $('links').value=state.links;
+  $('links').value=state.links; $('newLink').value=state.newLink; $('notes').value=state.notes;
   for(const [key,id] of [['only','itemOnly'],['after','itemAfter'],['before','itemBefore']]) $(id).value=state.selection[key];
   for (const key of ['folder','cookies','requests','min','max','thumb','overwrite'])
     $(key)[['thumb','overwrite'].includes(key)?'checked':'value']=state.settings[key];
@@ -175,7 +191,7 @@ function appendLinks(text, fromClipboard) {
   $('linkStatus').textContent=added.length ? added.length+' bağlantı eklendi.' : 'Bu bağlantılar zaten listede.';
 }
 $('addLink').onclick=()=>{
-  try { appendLinks($('newLink').value,false); $('newLink').value=''; }
+  try { appendLinks($('newLink').value,false); state.newLink=''; $('newLink').value='';save(); }
   catch(e) {$('linkStatus').textContent=e.message;}
 };
 $('paste').onclick=async()=>{
@@ -185,6 +201,7 @@ $('paste').onclick=async()=>{
     appendLinks(text,true);
   } catch(e) {$('linkStatus').textContent=e.message || 'Pano okunamadı.';}
 };
+$('newLink').oninput=()=>{state.newLink=$('newLink').value;save();};
 $('newLink').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('addLink').click();}};
 for(const [key,id] of [['only','itemOnly'],['after','itemAfter'],['before','itemBefore']]) $(id).oninput=()=>{state.selection[key]=$(id).value;save();preview();};
 $('fullVideo').onclick=()=>{state.cuts=[];renderCuts();save();preview();};
@@ -226,9 +243,25 @@ $('clear').onclick=()=>{
   const old=state.history; state.history=[];
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(e.message); }
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.4',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.5',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
-window.handleBack=()=>{if ($('dialog').open) { $('dialog').close(); return true; } return false;};
+$('notes').oninput=()=>{
+  state.notes=$('notes').value;
+  $('notesStatus').textContent=save() ? 'Kaydedildi' : $('status').textContent;
+};
+function closeNotes() {
+  if(!save()) {$('notesStatus').textContent=$('status').textContent;return;}
+  $('notesDialog').close();$('notesBtn').focus();
+}
+$('notesBtn').onclick=()=>{$('notesDialog').showModal();$('notes').focus();};
+$('notesClose').onclick=closeNotes;
+$('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();});
+window.handleBack=()=>{
+  if($('notesDialog').open) {closeNotes();return true;}
+  if($('dialog').open) {$('dialog').close();return true;}
+  return false;
+};
+window.prepareExit=()=>save();
 // Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=storageError;

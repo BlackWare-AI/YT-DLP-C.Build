@@ -92,12 +92,14 @@
   }
   // Runs once per extracted item, so every Story URL supplies its own account name.
   const storyMetadata = String.raw`webpage_url:https?://(?:www\.)?instagram\.com/stories/(?P<channel>[^/?#]+)(?:/|$)`;
-  function template(settings, hasCuts) {
-    const type = settings.mode === 'audio' ? 'audio-best' : settings.mode;
-    // yt-dlp supplies actual section bounds per file. Never use one literal range
-    // or autonumber alone for several sections of the same video.
-    const suffix = hasCuts ? '-cut%(section_start)s-%(section_end|end)s' : '';
-    return '%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(id)s-' + type + suffix + '.%(ext)s';
+  function template() {
+    // One counter increment per downloaded section/item, without IDs or mode suffixes.
+    return '%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(autonumber)02d.%(ext)s';
+  }
+  function removeUrl(text, target) {
+    return String(text).replace(/(?:https?:\/\/|(?:www\.)?instagram\.com\/)(?:(?!https?:\/\/)[^\s<>"“”])+/gi, part=>{
+      try { return parseUrls(part).includes(target) ? '' : part; } catch(e) { return part; }
+    }).trim();
   }
   function build(input) {
     const s = {...defaults, ...input.settings};
@@ -131,5 +133,5 @@
     return {command:args.join(' \\\n  '), urls, settings:s,
       cuts:['av','video'].includes(s.mode) ? cuts : [], selection:input.selection || {}, commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, parseUrls, validateCut, template, storyMetadata, build};
+  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
 });
