@@ -24,6 +24,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
@@ -75,3 +77,29 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+  web-and-media:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.58.2
+          npx playwright install --with-deps chromium
+          python -m pip install yt-dlp==2026.10.21
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Web UI tests
+        run: node tests/ui.cjs
+      - name: Real yt-dlp and ffmpeg fixture tests
+        run: python tests/media_integration.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-ui-preview
+          path: test-results/

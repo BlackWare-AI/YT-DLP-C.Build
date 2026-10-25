@@ -28,7 +28,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.FutureTask;
 import org.json.JSONObject;
@@ -37,7 +39,7 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private static final String ORIGIN = "https://app.local/";
     private static final int EXPORT_TEXT = 41;
-    private static final Set<String> ASSETS = Set.of("index.html", "engine.js", "app.js", "styles.css");
+    private static final Set<String> ASSETS = new HashSet<>(Arrays.asList("index.html", "engine.js", "app.js", "styles.css"));
     private WebView web;
     private SharedPreferences prefs;
     private boolean exporting;
@@ -88,10 +90,10 @@ public final class MainActivity extends Activity {
                         String mime = name.endsWith(".js") ? "application/javascript" :
                             name.endsWith(".css") ? "text/css" : "text/html";
                         return new WebResourceResponse(mime, "UTF-8", 200, "OK",
-                            Map.of("Cache-Control", "no-store", "X-Content-Type-Options", "nosniff"), getAssets().open(name));
+                            Collections.singletonMap("X-Content-Type-Options", "nosniff"), getAssets().open(name));
                     } catch (java.io.IOException ignored) { /* Return a closed failure response. */ }
                 }
-                return new WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", Map.of(), new ByteArrayInputStream(new byte[0]));
+                return new WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
@@ -164,16 +166,18 @@ public final class MainActivity extends Activity {
             exportFile().delete(); toast("Dışa aktarma iptal edildi."); return;
         }
         Uri destination = data.getData();
+        File completed = new File(getCacheDir(), "export-" + System.nanoTime() + ".txt");
+        if (!exportFile().renameTo(completed)) { toast("TXT kaydedilemedi; yeniden deneyin."); return; }
         new Thread(() -> {
             boolean success = false;
-            try (FileInputStream in = new FileInputStream(exportFile());
+            try (FileInputStream in = new FileInputStream(completed);
                  OutputStream out = getContentResolver().openOutputStream(destination, "wt")) {
                 if (out == null) throw new java.io.IOException("Destination unavailable");
                 byte[] buffer = new byte[8192]; int length;
                 while ((length = in.read(buffer)) != -1) out.write(buffer,0,length);
                 success = true;
             } catch (Exception ignored) { /* User gets failure, never a false success. */ }
-            exportFile().delete();
+            completed.delete();
             final boolean done = success;
             runOnUiThread(() -> toast(done ? "TXT dosyası kaydedildi." : "TXT kaydedilemedi; yeniden deneyin."));
         }, "text-export").start();
