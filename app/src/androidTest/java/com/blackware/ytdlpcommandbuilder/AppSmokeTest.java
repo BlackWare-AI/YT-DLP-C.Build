@@ -10,9 +10,6 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import android.graphics.Bitmap;
 import android.os.SystemClock;
 import android.test.InstrumentationTestCase;
 import android.webkit.WebView;
@@ -68,6 +65,9 @@ public final class AppSmokeTest extends InstrumentationTestCase {
                     byte[] buffer=new byte[8192]; int length;
                     while ((length=in.read(buffer))!=-1) bytes.write(buffer,0,length);
                     text=bytes.toString("UTF-8");
+                } catch (java.io.FileNotFoundException pendingWrite) {
+                    // Android 10 creates the backing file when the async writer opens it.
+                    // Keep polling; the final assertion still requires complete TXT data.
                 }
                 if (text.contains("--download-sections")) break;
                 SystemClock.sleep(100);
@@ -106,13 +106,6 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             launch();
             await("typeof Builder==='object' && document.getElementById('count').textContent==='2 bağlantı'");
             assertEquals("true",js("document.querySelector('#engines [data-value=normal]').getAttribute('aria-pressed')==='true' && document.querySelectorAll('#cuts .cut').length===2 && JSON.parse(Android.getState()).history.length===1"));
-            Bitmap screenshot=getInstrumentation().getUiAutomation().takeScreenshot();
-            if (screenshot!=null) {
-                try (FileOutputStream out=new FileOutputStream(new File(getInstrumentation().getTargetContext().getFilesDir(),"android-phone.png"))) {
-                    screenshot.compress(Bitmap.CompressFormat.PNG,100,out);
-                }
-                screenshot.recycle();
-            }
         } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
     }
 }
