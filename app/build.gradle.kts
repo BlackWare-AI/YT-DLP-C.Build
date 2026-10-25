@@ -10,6 +10,11 @@ android {
         versionName = "1.0.2"
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
+    signingConfigs {
+        getByName("debug") {
+            System.getenv("YTDLP_DEBUG_KEYSTORE")?.let { storeFile = file(it) }
+        }
+    }
     buildTypes {
         getByName("debug") { isMinifyEnabled = false }
         getByName("release") {

@@ -7,3 +7,5 @@ node_modules/
 *.keystore
 __pycache__/
 test-results/
+
+.debug-signing/

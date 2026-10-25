@@ -9,3 +9,5 @@
 .mode-grid button.active:after{top:5px;right:7px;font-size:9px}
 header{padding:12px 2px 8px;margin-top:10px}
 @media(max-width:350px){.mode-grid button{padding-left:10px;padding-right:46px}.mode-grid .mode-symbol{right:7px;width:30px;height:30px;font-size:11px}.mode-grid strong{font-size:12px}.mode-grid small{font-size:8px}}
+
+.mode-grid .mode-symbol{white-space:nowrap}
