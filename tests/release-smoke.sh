@@ -7,6 +7,9 @@ capture_evidence() {
 }
 trap capture_evidence EXIT
 adb install --no-incremental "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk"
+# The emulator launcher can show an ANR dialog during first boot.
+# Stop that unrelated launcher before opening the app under test.
+adb shell am force-stop com.google.android.apps.nexuslauncher
 adb shell am start -W -n "$package/.MainActivity"
 # A cold WebView can initialize after Activity launch has returned.
 # Wait for actual accessible page content rather than a fixed two-second delay.
@@ -18,6 +21,10 @@ for attempt in {1..20}; do
      grep -q 'Motor seç' release-ui.xml; then
     ready=true
     break
+  fi
+  if [ -f release-ui.xml ] && grep -q "Pixel Launcher isn.t responding" release-ui.xml; then
+    adb shell am force-stop com.google.android.apps.nexuslauncher
+    adb shell am start -W -n "$package/.MainActivity"
   fi
   sleep 2
 done
