@@ -37,7 +37,7 @@ function renderButtons() {
   $('cutSection').hidden = state.settings.mode !== 'video';
 }
 function renderCuts() {
-  $('cuts').replaceChildren();
+  $('cuts').textContent='';
   state.cuts.forEach((c,i) => {
     const row = document.createElement('div'); row.className='cut';
     for (const [key,label] of [['start','Başlangıç'],['end','Bitiş']]) {
@@ -79,7 +79,7 @@ function exportText(text,filename) {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function historyText(records) {
-  return records.map(h=>new Date(h.date).toLocaleString('tr-TR')+' | '+(h.urls?.length ?? h.count)+' bağlantı | '+h.mode+' | '+h.engine+
+  return records.map(h=>new Date(h.date).toLocaleString('tr-TR')+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+' bağlantı | '+h.mode+' | '+h.engine+
     '\nYalnızca komut oluşturuldu ve kopyalandı.\n'+(h.urls || []).join('\n')+'\n'+
     (h.snapshot ? JSON.stringify(h.snapshot.settings,null,2)+'\nKesitler: '+JSON.stringify(h.snapshot.cuts)+'\n' : '')+h.command).join('\n\n');
 }
@@ -89,14 +89,14 @@ function button(label, action) {
   return b;
 }
 function showHistory() {
-  $('history').replaceChildren(); let day='';
+  $('history').textContent=''; let day='';
   if (!state.history.length) $('history').textContent='Henüz kayıt yok.';
   state.history.forEach((h,i)=>{
     const d=new Date(h.date), key=d.toLocaleDateString('tr-TR');
     if (key!==day) { const title=document.createElement('h3'); title.textContent=d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}); $('history').append(title); day=key; }
     const item=document.createElement('details'); item.className='history-item';
     const summary=document.createElement('summary');
-    summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(h.urls?.length ?? h.count)+' bağlantı | '+
+    summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+' bağlantı | '+
       ({video:'Video',audio:'Ses',still:'StillClip'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
     item.append(summary);
     const pre=document.createElement('pre'); pre.textContent=historyText([h]); item.append(pre);
@@ -128,7 +128,7 @@ $('copy').onclick=async()=>{
   try {
     await copyText(result.command);
     // Keep old entries; deduplicate only identical consecutive operations.
-    if (state.history[0]?.command!==result.command) {
+    if ((!state.history[0] || state.history[0].command!==result.command)) {
       const record={date:new Date().toISOString(),count:result.urls.length,urls:result.urls,
         engine:state.settings.engine,mode:state.settings.mode,command:result.command,
         snapshot:JSON.parse(JSON.stringify({settings:state.settings,links:state.links,cuts:state.cuts}))};
