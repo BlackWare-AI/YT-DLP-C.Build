@@ -20,7 +20,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Video segments:** add multiple start/end ranges, including ranges that end at the end of a video.
 - **Audio artwork:** optionally embed available thumbnails in audio files.
 - **Advanced settings:** customize download and cookies paths, request delays, and overwrite behavior.
-- **Link Notes:** a full-screen AMOLED notepad slides in from the left. Store links, preferred formats and custom requests as free text; every edit is saved immediately. Closing with × or Back keeps notes, and copying commands never clears them. The two equal action buttons are Link Notes on the left and Copy Command on the right.
+- **Link Notes:** a full-screen AMOLED notepad slides in from the left. Tap unused lines to place the caret without repeatedly pressing Enter; paste from the in-editor clipboard button or the standard paste menu. Instagram query strings and fragments are removed on paste and when leaving/opening the editor, preserving surrounding format notes and line breaks. Store links, preferred formats and custom requests as free text; every edit is saved immediately. Closing with × or Back keeps notes, and copying commands never clears them. The two equal action buttons are Link Notes on the left and Copy Command on the right.
 - **Command preview and copy:** inspect the complete shell command before using it.
 - **Local history:** review previous commands and export records as text.
 - **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, notes, unfinished input, item selection, cuts and complete history. Cookies file contents are never read. This change adds export only.
@@ -82,7 +82,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.0.5`
+- Current documented version: `1.0.6`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -94,7 +94,7 @@ Press Back twice within two seconds on the main screen to exit. Back first dismi
 
 All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.5-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.6-debug`.
 
 Validation commands:
 

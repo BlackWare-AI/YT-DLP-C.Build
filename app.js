@@ -243,17 +243,74 @@ $('clear').onclick=()=>{
   const old=state.history; state.history=[];
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(e.message); }
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.5',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.6',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
-$('notes').oninput=()=>{
+function saveNotes() {
   state.notes=$('notes').value;
   $('notesStatus').textContent=save() ? 'Kaydedildi' : $('status').textContent;
+}
+function cleanNoteUrls() {
+  const editor=$('notes'), raw=editor.value, cleaned=Builder.cleanNotes(raw);
+  if(raw===cleaned) return;
+  const start=Builder.cleanNotes(raw.slice(0,editor.selectionStart)).length;
+  const end=Builder.cleanNotes(raw.slice(0,editor.selectionEnd)).length;
+  editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();
+}
+$('notes').oninput=e=>{
+  if(e.inputType==='insertFromPaste') cleanNoteUrls();
+  saveNotes();
 };
+$('notes').addEventListener('blur',cleanNoteUrls);
+function insertNoteText(text) {
+  const editor=$('notes');
+  editor.setRangeText(Builder.cleanNotes(text),editor.selectionStart,editor.selectionEnd,'end');
+  saveNotes();editor.focus();
+}
+$('notes').addEventListener('paste',e=>{
+  if(!e.clipboardData) return;
+  e.preventDefault();insertNoteText(e.clipboardData.getData('text/plain'));
+});
+// Keep the text selection when pressing the in-editor clipboard button.
+$('notesPaste').addEventListener('pointerdown',e=>e.preventDefault());
+$('notesPaste').onclick=async()=>{
+  try {
+    const text=native ? native.readClipboard() : await navigator.clipboard.readText();
+    if(!text) throw Error('Pano boş veya metin içermiyor.');
+    insertNoteText(text);
+  } catch(e) {$('notesStatus').textContent=e.message || 'Pano okunamadı.';}
+};
+let notePointer=null;
+$('notes').addEventListener('pointerdown',e=>{
+  notePointer={id:e.pointerId,x:e.clientX,y:e.clientY,scroll:$('notes').scrollTop};
+});
+$('notes').addEventListener('pointercancel',()=>{notePointer=null;});
+$('notes').addEventListener('pointerup',e=>{
+  const down=notePointer;notePointer=null;
+  const editor=$('notes');
+  if(!down || down.id!==e.pointerId || Math.hypot(e.clientX-down.x,e.clientY-down.y)>8 ||
+      Math.abs(editor.scrollTop-down.scroll)>2 || editor.selectionStart!==editor.selectionEnd) return;
+  const style=getComputedStyle(editor), lineHeight=parseFloat(style.lineHeight);
+  // A hidden mirror measures wrapped lines using the editor's actual font and width.
+  const mirror=document.createElement('div');
+  Object.assign(mirror.style,{position:'fixed',left:'-10000px',top:'0',visibility:'hidden',
+    boxSizing:'border-box',width:editor.clientWidth+'px',whiteSpace:'pre-wrap',overflowWrap:'break-word',
+    font:style.font,letterSpacing:style.letterSpacing,padding:style.padding,border:'0'});
+  mirror.textContent=editor.value;
+  const end=document.createElement('span');end.textContent='\u200b';mirror.append(end);document.body.append(mirror);
+  const padding=parseFloat(style.paddingTop);
+  const lastLine=Math.floor((end.getBoundingClientRect().top-mirror.getBoundingClientRect().top-padding)/lineHeight);
+  mirror.remove();
+  const targetLine=Math.floor((e.clientY-editor.getBoundingClientRect().top-parseFloat(style.borderTopWidth)+editor.scrollTop-padding)/lineHeight);
+  if(targetLine>lastLine) {
+    editor.setRangeText('\n'.repeat(targetLine-lastLine),editor.value.length,editor.value.length,'end');
+    saveNotes();
+  }
+});
 function closeNotes() {
   if(!save()) {$('notesStatus').textContent=$('status').textContent;return;}
   $('notesDialog').close();$('notesBtn').focus();
 }
-$('notesBtn').onclick=()=>{$('notesDialog').showModal();$('notes').focus();};
+$('notesBtn').onclick=()=>{$('notesDialog').showModal();cleanNoteUrls();$('notes').focus();};
 $('notesClose').onclick=closeNotes;
 $('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();});
 window.handleBack=()=>{

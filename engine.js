@@ -50,6 +50,11 @@
     if (end !== null && end < start) throw Error('Sonrası/öncesi arasında seçilecek öğe yok.');
     return start + ':' + (end === null ? '' : end);
   }
+  // Clean only Instagram URL tokens, preserving all surrounding free-form notes.
+  function cleanNotes(text) {
+    return String(text).replace(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi,
+      token => token.replace(/[?#].*$/, ''));
+  }
   function parseUrls(text, skipInvalid) {
     const urls = [];
     const source = String(text).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
@@ -133,5 +138,5 @@
     return {command:args.join(' \\\n  '), urls, settings:s,
       cuts:['av','video'].includes(s.mode) ? cuts : [], selection:input.selection || {}, commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
+  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, cleanNotes, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
 });

@@ -158,3 +158,9 @@ test('deleting a link preserves unrelated unfinished text and other links',()=>{
  const removed=B.removeUrl(raw,'https://www.instagram.com/reel/abc');
  assert.match(removed,/yarım not/);assert.match(removed,/stories\/a\/1/);assert.match(removed,/https:\/\/instag$/);assert.doesNotMatch(removed,/reel\/abc/);
 });
+test('note cleaning removes only Instagram sharing suffixes and preserves format annotations',()=>{
+  const raw='https://www.instagram.com/hilaalats?psln=MWFjOWFsejNnZjFqcw== V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nhttps://www.instagram.com/stories/didemsoydan/4015809594487502072?utm_source=ig_story_item_share&dlrf=ZHhoMWZ0OG9iMzgz V\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663?utm_source=ig_story_item_share&rpxt=dXNzdDMybHdhcnBr V1sec';
+  assert.equal(B.cleanNotes(raw),'https://www.instagram.com/hilaalats V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nhttps://www.instagram.com/stories/didemsoydan/4015809594487502072 V\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663 V1sec');
+  assert.equal(B.cleanNotes('Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/#shared S'), 'Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/ S');
+  assert.equal(B.cleanNotes('  https://instagram.com/p/ABC?igsh=x\tV+S\n'), '  https://instagram.com/p/ABC\tV+S\n');
+});
