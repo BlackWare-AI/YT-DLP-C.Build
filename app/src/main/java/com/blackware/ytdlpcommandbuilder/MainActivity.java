@@ -126,6 +126,17 @@ public final class MainActivity extends Activity {
                 return prefs.edit().putString("state", value).commit();
             } catch (Exception e) { return false; }
         }
+        @JavascriptInterface public String readClipboard() {
+            FutureTask<String> task = new FutureTask<>(() -> {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
+                if (clip == null || clip.getItemCount() == 0) return "";
+                CharSequence text = clip.getItemAt(0).getText();
+                return text == null ? "" : text.toString();
+            });
+            runOnUiThread(task);
+            try { return task.get(); } catch (Exception e) { return ""; }
+        }
         @JavascriptInterface public boolean copy(String text) {
             FutureTask<Boolean> task = new FutureTask<>(() -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);

@@ -14,33 +14,34 @@
     delete result.audioFormat;
     return result;
   }
-  const quote = value => "'" + String(value).replace(/'/g, "'\\''") + "'";
+  // Escape every expansion-sensitive character inside a double-quoted argument.
+  const quote = value => '"' + String(value).replace(/[\\"$`]/g, c => '\\' + c) + '"';
   function shellPath(value) {
     const s = String(value).trim();
     if (/[\x00-\x1f\x7f]/.test(s) || !/^(?:\/|\$HOME(?:\/|$))/.test(s))
       throw Error('Yol / veya $HOME/ ile başlamalı; content:// adresi kullanılamaz.');
-    return s.startsWith('$HOME') ? '"$HOME"' + quote(s.slice(5)) : quote(s);
+    // Only the leading HOME is expanded; user-supplied dollars remain literal.
+    return s.startsWith('$HOME') ? '"$HOME' + quote(s.slice(5)).slice(1) : quote(s);
   }
-  function parseUrls(text) {
+  function parseUrls(text, skipInvalid) {
     const urls = [];
+    const source = String(text).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
     // Stop at the next scheme, including when share links have no separator.
-    const parts = String(text).match(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"“”])+/gi) || [];
+    const parts = source.match(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"“”])+/gi) || [];
     for (let part of parts) {
-      part = part.replace(/[),;.!?\]}]+$/, '');
-      let u;
-      try { u = new URL(part); } catch { throw Error('Geçersiz bağlantı: ' + part); }
-      if (!u.hostname || u.username || u.password) throw Error('Geçersiz bağlantı: ' + part);
-      if (/^(?:www\.|m\.)?instagram\.com$/i.test(u.hostname)) {
+      try {
+        part = part.replace(/[),;.!?\]}]+$/, '');
+        const u = new URL(part);
+        if (!/^(?:www\.)?instagram\.com$/i.test(u.hostname) || u.username || u.password || u.port)
+          throw Error('Yalnızca instagram.com içerik bağlantıları kabul edilir.');
         u.hostname = 'www.instagram.com'; u.protocol = 'https:'; u.search = ''; u.hash = '';
         u.pathname = u.pathname.replace(/\/+$/, '');
-        if (!/^\/(?:stories\/[\w.]+(?:\/\d+)?|(?:reel|reels|p|tv)\/[\w-]+)$/.test(u.pathname))
-          throw Error('Instagram içerik bağlantısı girin (Story, Reels veya gönderi).');
-      } else {
-        // Other extractors may need query parameters (e.g. YouTube v=).
-        for (const k of [...u.searchParams.keys()]) if (/^utm_|^(fbclid|igsh)$/i.test(k)) u.searchParams.delete(k);
+        if (!/^\/(?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)$/.test(u.pathname))
+          throw Error('Instagram içerik bağlantısı girin (Story, Reels, gönderi veya TV).');
+        if (!urls.includes(u.href)) urls.push(u.href);
+      } catch (e) {
+        if (!skipInvalid) throw Error(e.message || 'Geçersiz bağlantı.');
       }
-      const normalized = u.href;
-      if (!urls.includes(normalized)) urls.push(normalized);
     }
     return urls;
   }
@@ -76,7 +77,7 @@
     delete s.audioFormat;
     if (!['normal','experimental'].includes(s.engine) || !['av','video','audio','still'].includes(s.mode)) throw Error('Geçersiz motor veya biçim.');
     const urls = parseUrls(input.links);
-    if (!urls.length) throw Error('En az bir http/https içerik bağlantısı girin.');
+    if (!urls.length) throw Error('En az bir Instagram içerik bağlantısı girin.');
     const min = numeric(s.min, 'Sleep min'), max = numeric(s.max, 'Sleep max'), req = numeric(s.requests, 'Sleep requests');
     if (max < min) throw Error('Sleep max, minimumdan küçük olamaz.');
     shellPath(s.folder); // Validate the base before adding the mode's output subdirectory.
@@ -85,7 +86,7 @@
     const cookies = s.cookies.trim() ? shellPath(s.cookies) : null;
     const cuts = ['av','video'].includes(s.mode) ? (input.cuts || []).map(validateCut) :
       s.mode === 'still' ? [{start:'0',end:'1'}] : [];
-    const args = [s.engine === 'normal' ? 'yt-dlp' : '"$HOME"/yt-dlp-story-test/bin/yt-dlp', '--ignore-config', '--no-playlist'];
+    const args = [s.engine === 'normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp'), '--ignore-config', '--no-playlist'];
     if (cookies) args.push('--cookies ' + cookies);
     args.push('--sleep-requests ' + req, '--sleep-interval ' + min, '--max-sleep-interval ' + max,
       s.overwrite ? '--no-overwrites' : '--force-overwrites');

@@ -2,6 +2,7 @@ package com.blackware.ytdlpcommandbuilder;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentValues;
 import android.content.IntentFilter;
@@ -79,6 +80,18 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             getInstrumentation().getTargetContext().getContentResolver().delete(destination,null,null);
         }
     }
+    public void testSavedDraftSurvivesProcessDeath() throws Exception {
+        android.os.Bundle args=((android.test.InstrumentationTestRunner)getInstrumentation()).getArguments();
+        boolean verify="verify".equals(args.getString("phase"));
+        launch();
+        try {
+            await("document.readyState==='complete' && typeof window.handleBack==='function'");
+            if (!verify) {
+                js("document.getElementById('links').value='https://instagram.com/stories/process.user/1';document.getElementById('links').dispatchEvent(new Event('input'));true");
+            }
+            assertEquals("true",js("document.getElementById('links').value==='https://instagram.com/stories/process.user/1' && JSON.parse(Android.getState()).links==='https://instagram.com/stories/process.user/1'"));
+        } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
+    }
     public void testOfflineLaunchCommandsPersistenceAndHistory() throws Exception {
         getInstrumentation().getTargetContext().getSharedPreferences("builder",0).edit().clear().commit();
         launch();
@@ -87,8 +100,20 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             await("document.readyState==='complete' && typeof window.handleBack==='function'");
             js("document.getElementById('links').value='https://instagram.com/stories/user.name/123?utm_source=ahttps://instagram.com/reel/abc/';document.getElementById('links').dispatchEvent(new Event('input'));document.querySelector('#engines [data-value=normal]').click();document.getElementById('addCut').click();document.getElementById('addCut').click();true");
             await("document.getElementById('count').textContent==='2 bağlantı' && document.querySelectorAll('#cuts .cut').length===2 && !document.getElementById('copy').disabled");
+            getInstrumentation().runOnMainSync(() -> activity.finish());
+            getInstrumentation().waitForIdleSync(); launch();
+            await("document.readyState==='complete' && document.getElementById('count').textContent==='2 bağlantı'");
+            // The paste button reads the actual Android clipboard on user action.
+            getInstrumentation().runOnMainSync(() -> {
+                ClipboardManager cm=(ClipboardManager)activity.getSystemService(Activity.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("links","https://example.org/v https://instagram.com/stories/user.name/123 https://instagram.com/p/pasted/"));
+            });
+            js("document.getElementById('paste').click();true");
+            await("document.getElementById('count').textContent==='3 bağlantı'");
+            js("document.getElementById('paste').click();true");
+            await("document.getElementById('count').textContent==='3 bağlantı'");
             js("document.getElementById('copy').click();true");
-            await("JSON.parse(Android.getState()).history.length===1");
+            await("JSON.parse(Android.getState()).history.length===1 && JSON.parse(Android.getState()).links==='' && document.getElementById('links').value===''");
             AtomicReference<String> clipboard = new AtomicReference<>();
             getInstrumentation().runOnMainSync(() -> {
                 ClipboardManager cm = (ClipboardManager) activity.getSystemService(Activity.CLIPBOARD_SERVICE);
@@ -104,6 +129,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             verifyTextExport();
             assertEquals("true",js("window.handleBack()"));
             assertEquals("false",js("document.getElementById('dialog').open"));
+            js("document.getElementById('links').value='https://instagram.com/stories/persist.user/1https://instagram.com/reel/restored/';document.getElementById('links').dispatchEvent(new Event('input'));true");
             getInstrumentation().runOnMainSync(() -> activity.finish());
             getInstrumentation().waitForIdleSync();
             launch();

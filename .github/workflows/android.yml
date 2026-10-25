@@ -45,11 +45,11 @@ jobs:
       - name: Build APK, instrumentation APK and lint
         run: gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --no-daemon
       - name: Name APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk YT-DLP-Command-Builder-1.0.2-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk YT-DLP-Command-Builder-1.0.3-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: YT-DLP-Command-Builder-1.0.2-debug
-          path: YT-DLP-Command-Builder-1.0.2-debug.apk
+          name: YT-DLP-Command-Builder-1.0.3-debug
+          path: YT-DLP-Command-Builder-1.0.3-debug.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
@@ -85,6 +85,13 @@ jobs:
           script: |
             gradle :app:connectedDebugAndroidTest --no-daemon
             adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e class com.blackware.ytdlpcommandbuilder.AppSmokeTest#testSavedDraftSurvivesProcessDeath -e phase seed com.blackware.ytdlpcommandbuilder.test/android.test.InstrumentationTestRunner | tee process-seed.txt
+            grep -q 'OK (1 test)' process-seed.txt
+            adb shell am force-stop com.blackware.ytdlpcommandbuilder
+            adb shell am instrument -w -e class com.blackware.ytdlpcommandbuilder.AppSmokeTest#testSavedDraftSurvivesProcessDeath -e phase verify com.blackware.ytdlpcommandbuilder.test/android.test.InstrumentationTestRunner | tee process-verify.txt
+            grep -q 'OK (1 test)' process-verify.txt
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.blackware.ytdlpcommandbuilder/.MainActivity
             sleep 2
             adb shell screencap -p /sdcard/android-phone.png
@@ -97,6 +104,7 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             android-phone-*.png
+            process-*.txt
   web-and-media:
     runs-on: ubuntu-latest
     steps:

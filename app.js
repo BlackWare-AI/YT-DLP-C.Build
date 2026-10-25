@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const native = window.Android;
-let state, storageError = '';
+let state, storageError = '', copying = false;
 function readState() {
   try {
     const raw = native ? native.getState() : localStorage.getItem('builder.state');
@@ -78,10 +78,11 @@ function preview() {
   try {
     renderLinks(Builder.parseUrls(state.links));
     const result=Builder.build(state);
-    $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=false;
+    $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=copying;
     $('commandCount').textContent=result.commandCount+' komut';$('commandTitle').textContent='Komut hazır';
     return result;
   } catch(e) {
+    renderLinks(Builder.parseUrls(state.links,true));
     $('error').textContent=e.message; $('output').textContent=''; $('copy').disabled=true;
     $('commandCount').textContent='—';$('commandTitle').textContent='Komut';
     return null;
@@ -149,35 +150,59 @@ for (const [id,key] of [['engines','engine'],['modes','mode']]) $(id).onclick=e=
   const b=e.target.closest('button[data-value]'); if (!b) return;
   state.settings[key]=b.dataset.value; save(); renderButtons(); preview();
 };
+function appendLinks(text, fromClipboard) {
+  const urls=Builder.parseUrls(text,fromClipboard);
+  if(!urls.length) throw Error(fromClipboard ? 'Panoda uygun Instagram bağlantısı yok.' : 'Eklemek için bir Instagram bağlantısı girin.');
+  const existing=Builder.parseUrls(state.links,true);
+  const added=urls.filter(url=>!existing.includes(url));
+  if(added.length) {
+    // Preserve even an unfinished/manual draft; append only new canonical URLs.
+    state.links=(state.links+'\n'+added.join('\n')).trim();
+    $('links').value=state.links; persist(); preview();
+  }
+  $('linkStatus').textContent=added.length ? added.length+' bağlantı eklendi.' : 'Bu bağlantılar zaten listede.';
+}
 $('addLink').onclick=()=>{
+  try { appendLinks($('newLink').value,false); $('newLink').value=''; }
+  catch(e) {$('linkStatus').textContent=e.message;}
+};
+$('paste').onclick=async()=>{
   try {
-    const urls=Builder.parseUrls($('newLink').value);
-    if(!urls.length) throw Error('Eklemek için bir bağlantı girin.');
-    const before=Builder.parseUrls(state.links).length;
-    state.links=(state.links+'\n'+urls.join('\n')).trim();$('links').value=state.links;$('newLink').value='';
-    save();preview();
-    const added=Builder.parseUrls(state.links).length-before;
-    $('linkStatus').textContent=added ? added+' bağlantı eklendi.' : 'Bu bağlantı zaten listede.';
-  } catch(e) {$('linkStatus').textContent=e.message;}
+    const text=native ? native.readClipboard() : await navigator.clipboard.readText();
+    if(!text || !text.trim()) throw Error('Pano boş veya metin içermiyor.');
+    appendLinks(text,true);
+  } catch(e) {$('linkStatus').textContent=e.message || 'Pano okunamadı.';}
 };
 $('newLink').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('addLink').click();}};
 $('fullVideo').onclick=()=>{state.cuts=[];renderCuts();save();preview();};
 $('links').oninput=()=>{state.links=$('links').value; save(); preview();};
 $('addCut').onclick=()=>{state.cuts.push({start:'0',end:'1'}); renderCuts(); save(); preview();};
 $('copy').onclick=async()=>{
+  if(copying) return;
   const result=preview(); if (!result) return;
+  const snapshot=JSON.parse(JSON.stringify({schema:2,settings:state.settings,links:state.links,cuts:state.cuts}));
+  copying=true; $('copy').disabled=true;
   try {
+    // Require a saved draft before attempting any destructive post-copy change.
+    persist();
     await copyText(result.command);
-    // Keep old entries; deduplicate only identical consecutive operations.
-    if ((!state.history[0] || state.history[0].command!==result.command)) {
+    const oldHistory=state.history, oldLinks=state.links;
+    if (!state.history[0] || state.history[0].command!==result.command) {
       const record={date:new Date().toISOString(),count:result.urls.length,urls:result.urls,
-        engine:state.settings.engine,mode:state.settings.mode,command:result.command,
-        snapshot:JSON.parse(JSON.stringify({schema:2,settings:state.settings,links:state.links,cuts:state.cuts}))};
-      state.history.unshift(record);
-      try { persist(); } catch(e) { state.history.shift(); throw Error('Komut kopyalandı, geçmiş kaydedilemedi: '+e.message); }
+        engine:result.settings.engine,mode:result.settings.mode,command:result.command,snapshot};
+      state.history=[record,...state.history];
     }
+    // Do not erase text added while the asynchronous clipboard operation ran.
+    if(state.links===snapshot.links) state.links='';
+    try { persist(); }
+    catch(e) {
+      state.history=oldHistory; state.links=oldLinks;
+      throw Error('Komut kopyalandı, kayıt tamamlanamadı; bağlantılar korundu: '+e.message);
+    }
+    $('links').value=state.links;
     $('status').textContent='Komut kopyalandı · Geçmişte kayıtlı';
   } catch(e) { $('status').textContent=e.message; }
+  finally {copying=false;preview();}
 };
 $('historyBtn').onclick=()=>{showHistory(); $('dialog').showModal();};
 $('close').onclick=()=>$('dialog').close();
@@ -188,5 +213,6 @@ $('clear').onclick=()=>{
 };
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 window.handleBack=()=>{if ($('dialog').open) { $('dialog').close(); return true; } return false;};
+// Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=storageError;

@@ -24,6 +24,30 @@ const root=path.resolve(__dirname,'..');
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
   assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));
 
+  assert.equal(await page.evaluate(()=>document.querySelector('.setup').nextElementSibling.contains(document.getElementById('copy'))),true);
+  assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
+  await page.fill('#links','https://instagram.com/stories/draft.user/1');
+  await page.reload();assert.match(await page.inputValue('#links'),/draft.user/);
+  // A fresh document restores the saved draft; Android process death is tested separately.
+  const restored=await context.newPage();await restored.goto(url);assert.match(await restored.inputValue('#links'),/draft.user/);await restored.close();await page.bringToFront();
+  await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x https://instagram.com/stories/draft.user/1 https://instagram.com/reel/pasted/'));
+  await page.click('#paste');await page.waitForFunction(()=>document.getElementById('count').textContent==='2 bağlantı');assert.equal(await page.textContent('#count'),'2 bağlantı');assert.match(await page.inputValue('#links'),/draft.user/);
+  await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('zaten listede'));assert.equal(await page.textContent('#count'),'2 bağlantı');
+  await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x'));await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('uygun Instagram'));assert.match(await page.textContent('#linkStatus'),/uygun Instagram/);
+  await page.evaluate(()=>navigator.clipboard.writeText(''));await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('Pano boş'));assert.match(await page.textContent('#linkStatus'),/Pano boş/);
+  await page.reload();assert.equal(await page.textContent('#count'),'2 bağlantı');
+  await page.evaluate(()=>{window.originalWrite=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.writeText=async()=>{throw Error('Test pano hatası');};});
+  const draft=await page.inputValue('#links');await page.click('#copy');await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Test pano hatası'));
+  assert.equal(await page.inputValue('#links'),draft);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),0);
+  await page.evaluate(()=>{navigator.clipboard.writeText=window.originalWrite;});
+  // A storage failure after clipboard success must roll history and draft back.
+  await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;window.failSave=false;Storage.prototype.setItem=function(k,v){if(window.failSave)throw Error('Test kayıt hatası');return window.originalSetItem.call(this,k,v);};navigator.clipboard.writeText=async text=>{await window.originalWrite(text);window.failSave=true;};});
+  await page.click('#copy');await page.waitForFunction(()=>document.getElementById('status').textContent.includes('bağlantılar korundu'));
+  assert.equal(await page.inputValue('#links'),draft);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),0);
+  await page.evaluate(()=>{Storage.prototype.setItem=window.originalSetItem;navigator.clipboard.writeText=window.originalWrite;});
+  await page.reload();assert.equal(await page.inputValue('#links'),draft);
+
+  await page.fill('#links','https://instagram.com/reel/ok https://instagram.com.evil.org/reel/x');assert.equal(await page.locator('#copy').isDisabled(),true);
   await page.fill('#links','https://instagram.com/stories/user.one/123?utm_source=xhttps://instagram.com/reel/abc/ https://instagram.com/stories/user.one/123/');
   assert.equal(await page.textContent('#count'),'2 bağlantı');
   await page.fill('#newLink','https://instagram.com/stories/other.user/456');await page.click('#addLink');
@@ -40,15 +64,17 @@ const root=path.resolve(__dirname,'..');
   await page.click('#engines [data-value=normal]');await page.locator('#settings > summary').click();
   await page.fill('#min','3');await page.fill('#max','2');assert.equal(await page.locator('#copy').isDisabled(),true);
   await page.fill('#max','8');await page.fill('#folder','$HOME/My Downloads');await page.fill('#cookies','/storage/emulated/0/My Cookies.txt');
+  const command=await page.textContent('#output');
   await page.click('#copy');await page.waitForFunction(()=>JSON.parse(localStorage.getItem('builder.state')).history.length===1);
-  const command=await page.textContent('#output');assert.equal((command.match(/--no-playlist/g)||[]).length,1);assert.equal((command.match(/--download-sections/g)||[]).length,3);assert.equal(await page.textContent('#commandCount'),'1 komut');assert.match(command,/-f 'bv\+ba\/b'/);assert.doesNotMatch(command,/force-keyframes|--audio-format (mp3|m4a)/);assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);
-  await page.click('#copy');assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),1);
-  await page.reload();assert.equal(await page.locator('#cuts .cut').count(),3);assert.equal(await page.inputValue('#folder'),'$HOME/My Downloads');
+  assert.equal((command.match(/--no-playlist/g)||[]).length,1);assert.equal((command.match(/--download-sections/g)||[]).length,3);assert.equal(await page.inputValue('#links'),'');assert.equal(await page.locator('#copy').isDisabled(),true);assert.match(command,/-f "bv\+ba\/b"/);assert.doesNotMatch(command,/force-keyframes|--audio-format (mp3|m4a)/);assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);
+  await page.fill('#links','https://instagram.com/stories/user.one/123 https://instagram.com/reel/abc');await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),1);
+  await page.reload();assert.equal(await page.inputValue('#links'),'');assert.equal(await page.locator('#cuts .cut').count(),3);assert.equal(await page.inputValue('#folder'),'$HOME/My Downloads');
   assert.equal(await page.getAttribute('#engines [data-value=normal]','aria-pressed'),'true');
+  await page.fill('#links','https://instagram.com/stories/user.one/123 https://instagram.com/reel/abc');
   await page.click('#modes [data-value=audio]');assert.equal(await page.locator('#cutSection').isVisible(),false);
   await page.locator('#settings > summary').click();
   assert.match(await page.textContent('#output'),/--audio-format best[\s\S]*--embed-thumbnail/);
-  await page.click('#copy');await page.click('#modes [data-value=video]');assert.match(await page.textContent('#output'),/-f 'bv'/);
+  await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');await page.fill('#links','https://instagram.com/reel/abc');await page.click('#modes [data-value=video]');assert.match(await page.textContent('#output'),/-f "bv"/);
   await page.click('#modes [data-value=still]');assert.match(await page.textContent('#output'),/\*0-1/);
   await page.click('#historyBtn');assert.equal(await page.locator('.history-item').count(),2);
   const downloadPromise=page.waitForEvent('download');await page.click('#export');const download=await downloadPromise;
@@ -72,5 +98,5 @@ const root=path.resolve(__dirname,'..');
   assert.match(await page.textContent('#status'),/üzerine yazılmayacak/);await page.fill('#links','https://instagram.com/reel/abc/');
   assert.equal(await page.evaluate(()=>localStorage.getItem('builder.state')),'invalid-json');
   console.log('PASS: corrupt persistent data is preserved instead of overwritten');
- }finally{await browser.close();await new Promise(r=>server.close(r));}
+ }catch(e){console.error('UI diagnostics:',await page.evaluate(()=>({status:document.getElementById('status').textContent,linkStatus:document.getElementById('linkStatus').textContent,error:document.getElementById('error').textContent})));throw e;}finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
