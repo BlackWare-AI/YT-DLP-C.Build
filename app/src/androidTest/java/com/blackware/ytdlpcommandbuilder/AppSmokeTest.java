@@ -126,6 +126,13 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             js("document.getElementById('itemOnly').value='2';document.getElementById('itemOnly').dispatchEvent(new Event('input'));true");
             await("document.getElementById('output').textContent.includes('--playlist-items \"2\"')");
             js("document.getElementById('notesBtn').click();document.getElementById('notes').value='https://instagram.com/stories/stock.user/1 - SClip, sonra V+S';document.getElementById('notes').dispatchEvent(new Event('input'));document.getElementById('notesClose').click();true");
+            getInstrumentation().runOnMainSync(() -> {
+                ClipboardManager cm=(ClipboardManager)activity.getSystemService(Activity.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("notes","https://www.instagram.com/hilaalats?psln=abc== V4S"));
+            });
+            js("document.getElementById('notesBtn').click();document.getElementById('notes').setSelectionRange(0,0);document.getElementById('notesPaste').click();true");
+            await("JSON.parse(Android.getState()).notes.startsWith('https://www.instagram.com/hilaalats V4S') && JSON.parse(Android.getState()).notes.includes('stock.user') && !JSON.parse(Android.getState()).notes.includes('psln')");
+            js("document.getElementById('notesClose').click();true");
             js("document.getElementById('copy').click();true");
             await("JSON.parse(Android.getState()).history.length===1 && JSON.parse(Android.getState()).links==='' && document.getElementById('links').value==='' && JSON.parse(Android.getState()).cuts.length===0 && document.querySelectorAll('#cuts .cut').length===0 && document.getElementById('itemOnly').value==='' && JSON.parse(Android.getState()).selection.only==='' && JSON.parse(Android.getState()).notes.includes('stock.user')");
             AtomicReference<String> clipboard = new AtomicReference<>();

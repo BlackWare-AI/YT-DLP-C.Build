@@ -27,6 +27,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.evaluate(()=>document.querySelector('.setup').nextElementSibling.contains(document.getElementById('copy'))),true);
   assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
   await page.click('#notesBtn');
+  await page.locator('#notes').click(); // Wait for the slide-in animation to settle.
   await page.fill('#notes','Önceki not V4S');
   const point=await page.locator('#notes').evaluate(el=>{
     const r=el.getBoundingClientRect(),s=getComputedStyle(el),line=parseFloat(s.lineHeight);
