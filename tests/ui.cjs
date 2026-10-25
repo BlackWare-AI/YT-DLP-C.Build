@@ -28,18 +28,25 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
   await page.fill('#links','https://instagram.com/stories/draft.user/1');
   await page.reload();assert.match(await page.inputValue('#links'),/draft.user/);
-  // Browser process loss: the saved state must survive a fresh page, too.
-  const restored=await context.newPage();await restored.goto(url);assert.match(await restored.inputValue('#links'),/draft.user/);await restored.close();
+  // A fresh document restores the saved draft; Android process death is tested separately.
+  const restored=await context.newPage();await restored.goto(url);assert.match(await restored.inputValue('#links'),/draft.user/);await restored.close();await page.bringToFront();
   await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x https://instagram.com/stories/draft.user/1 https://instagram.com/reel/pasted/'));
-  await page.click('#paste');assert.equal(await page.textContent('#count'),'2 bağlantı');assert.match(await page.inputValue('#links'),/draft.user/);
+  await page.click('#paste');await page.waitForFunction(()=>document.getElementById('count').textContent==='2 bağlantı');assert.equal(await page.textContent('#count'),'2 bağlantı');assert.match(await page.inputValue('#links'),/draft.user/);
   await page.click('#paste');assert.equal(await page.textContent('#count'),'2 bağlantı');
-  await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x'));await page.click('#paste');assert.match(await page.textContent('#linkStatus'),/uygun Instagram/);
-  await page.evaluate(()=>navigator.clipboard.writeText(''));await page.click('#paste');assert.match(await page.textContent('#linkStatus'),/Pano boş/);
+  await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x'));await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('uygun Instagram'));assert.match(await page.textContent('#linkStatus'),/uygun Instagram/);
+  await page.evaluate(()=>navigator.clipboard.writeText(''));await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('Pano boş'));assert.match(await page.textContent('#linkStatus'),/Pano boş/);
   await page.reload();assert.equal(await page.textContent('#count'),'2 bağlantı');
   await page.evaluate(()=>{window.originalWrite=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.writeText=async()=>{throw Error('Test pano hatası');};});
   const draft=await page.inputValue('#links');await page.click('#copy');await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Test pano hatası'));
   assert.equal(await page.inputValue('#links'),draft);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),0);
   await page.evaluate(()=>{navigator.clipboard.writeText=window.originalWrite;});
+  // A storage failure after clipboard success must roll history and draft back.
+  await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;window.failSave=false;Storage.prototype.setItem=function(k,v){if(window.failSave)throw Error('Test kayıt hatası');return window.originalSetItem.call(this,k,v);};navigator.clipboard.writeText=async text=>{await window.originalWrite(text);window.failSave=true;};});
+  await page.click('#copy');await page.waitForFunction(()=>document.getElementById('status').textContent.includes('bağlantılar korundu'));
+  assert.equal(await page.inputValue('#links'),draft);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),0);
+  await page.evaluate(()=>{Storage.prototype.setItem=window.originalSetItem;navigator.clipboard.writeText=window.originalWrite;});
+  await page.reload();assert.equal(await page.inputValue('#links'),draft);
+
   await page.fill('#links','https://instagram.com/reel/ok https://instagram.com.evil.org/reel/x');assert.equal(await page.locator('#copy').isDisabled(),true);
   await page.fill('#links','https://instagram.com/stories/user.one/123?utm_source=xhttps://instagram.com/reel/abc/ https://instagram.com/stories/user.one/123/');
   assert.equal(await page.textContent('#count'),'2 bağlantı');
@@ -91,5 +98,5 @@ const root=path.resolve(__dirname,'..');
   assert.match(await page.textContent('#status'),/üzerine yazılmayacak/);await page.fill('#links','https://instagram.com/reel/abc/');
   assert.equal(await page.evaluate(()=>localStorage.getItem('builder.state')),'invalid-json');
   console.log('PASS: corrupt persistent data is preserved instead of overwritten');
- }finally{await browser.close();await new Promise(r=>server.close(r));}
+ }catch(e){console.error('UI diagnostics:',await page.evaluate(()=>({status:document.getElementById('status').textContent,linkStatus:document.getElementById('linkStatus').textContent,error:document.getElementById('error').textContent})));throw e;}finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
