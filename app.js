@@ -43,7 +43,7 @@ function renderCuts() {
   $('cutLabels').hidden=!state.cuts.length;
   $('cutCount').textContent=state.cuts.length ? state.cuts.length+' kesit' : 'Tam video';
   $('fullVideo').disabled=!state.cuts.length;
-  $('cutHint').textContent=state.cuts.length ? 'Saniye gir; sondan saymak için -3 / inf kullan. Kesitler ayrı dosyalardır. Yeniden kodlama zorlanmaz; başlangıç anahtar kareye kayabilir.' : 'Tam video seçili. İstersen birden fazla kesit ekleyebilirsin.';
+  $('cutHint').textContent=state.cuts.length ? 'Saniye gir; sondan saymak için -3 / inf kullan. Tüm linkler ve kesitler tek komutta, çıktılar ayrı dosyalarda. Yeniden kodlama zorlanmaz; başlangıç anahtar kareye kayabilir.' : 'Tam video seçili. İstersen birden fazla kesit ekleyebilirsin.';
   state.cuts.forEach((c,i) => {
     const row = document.createElement('div'); row.className='cut';
     for (const [key,label] of [['start','Başlangıç'],['end','Bitiş']]) {
@@ -79,7 +79,7 @@ function preview() {
     renderLinks(Builder.parseUrls(state.links));
     const result=Builder.build(state);
     $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=false;
-    $('commandCount').textContent=result.commandCount+' işlem';$('commandTitle').textContent='Komut hazır';
+    $('commandCount').textContent=result.commandCount+' komut';$('commandTitle').textContent='Komut hazır';
     return result;
   } catch(e) {
     $('error').textContent=e.message; $('output').textContent=''; $('copy').disabled=true;

@@ -20,6 +20,10 @@ const root=path.resolve(__dirname,'..');
   await page.goto(url);assert.equal(await page.locator('#cuts .cut').count(),0);
   assert.equal(await page.getAttribute('#modes [data-value=av]','aria-pressed'),'true');
   assert.equal(await page.locator('#audioFormat').count(),0);
+  assert.equal(await page.evaluate(()=>document.querySelector('main').lastElementChild.tagName),'HEADER');
+  const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
+  assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));
+
   await page.fill('#links','https://instagram.com/stories/user.one/123?utm_source=xhttps://instagram.com/reel/abc/ https://instagram.com/stories/user.one/123/');
   assert.equal(await page.textContent('#count'),'2 bağlantı');
   await page.fill('#newLink','https://instagram.com/stories/other.user/456');await page.click('#addLink');
@@ -37,7 +41,7 @@ const root=path.resolve(__dirname,'..');
   await page.fill('#min','3');await page.fill('#max','2');assert.equal(await page.locator('#copy').isDisabled(),true);
   await page.fill('#max','8');await page.fill('#folder','$HOME/My Downloads');await page.fill('#cookies','/storage/emulated/0/My Cookies.txt');
   await page.click('#copy');await page.waitForFunction(()=>JSON.parse(localStorage.getItem('builder.state')).history.length===1);
-  const command=await page.textContent('#output');assert.match(command,/-f 'bv\+ba\/b'/);assert.doesNotMatch(command,/force-keyframes|--audio-format (mp3|m4a)/);assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);
+  const command=await page.textContent('#output');assert.equal((command.match(/--no-playlist/g)||[]).length,1);assert.equal((command.match(/--download-sections/g)||[]).length,3);assert.equal(await page.textContent('#commandCount'),'1 komut');assert.match(command,/-f 'bv\+ba\/b'/);assert.doesNotMatch(command,/force-keyframes|--audio-format (mp3|m4a)/);assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);
   await page.click('#copy');assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),1);
   await page.reload();assert.equal(await page.locator('#cuts .cut').count(),3);assert.equal(await page.inputValue('#folder'),'$HOME/My Downloads');
   assert.equal(await page.getAttribute('#engines [data-value=normal]','aria-pressed'),'true');
@@ -55,7 +59,7 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-item summary').first().click();page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Sil',exact:true}).first().click();assert.equal(await page.locator('.history-item').count(),1);
   await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#dialog').isVisible(),false);
   await page.click('#modes [data-value=video]');await page.locator('#cuts .cut button').last().click();assert.equal(await page.locator('#cuts .cut').count(),2);
-  for(const width of [320,390,760]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);}
+  for(const width of [320,390,760]){await page.setViewportSize({width,height:844});const heights=await page.evaluate(()=>[document.querySelector('#engines button').getBoundingClientRect().height,...Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)]);assert.ok(heights.every(h=>Math.abs(h-heights[0])<1));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);}
   fs.mkdirSync(path.join(root,'test-results'),{recursive:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(root,'test-results/phone.png'),fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS: UI modes, cuts, validation, persistence, clipboard, deduplication, history edit/delete/export and 320–760 px layouts');

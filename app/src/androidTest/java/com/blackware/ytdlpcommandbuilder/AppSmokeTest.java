@@ -82,6 +82,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
     public void testOfflineLaunchCommandsPersistenceAndHistory() throws Exception {
         getInstrumentation().getTargetContext().getSharedPreferences("builder",0).edit().clear().commit();
         launch();
+        assertTrue("Launcher icon must be packaged",getInstrumentation().getTargetContext().getApplicationInfo().icon!=0);
         try {
             await("document.readyState==='complete' && typeof window.handleBack==='function'");
             js("document.getElementById('links').value='https://instagram.com/stories/user.name/123?utm_source=ahttps://instagram.com/reel/abc/';document.getElementById('links').dispatchEvent(new Event('input'));document.querySelector('#engines [data-value=normal]').click();document.getElementById('addCut').click();document.getElementById('addCut').click();true");
@@ -94,6 +95,8 @@ public final class AppSmokeTest extends InstrumentationTestCase {
                 clipboard.set(cm.getPrimaryClip().getItemAt(0).getText().toString());
             });
             assertTrue("Native clipboard must contain complete commands", clipboard.get().contains("--download-sections") && clipboard.get().contains("user.name"));
+            assertEquals("Only one yt-dlp command",2,clipboard.get().split("--no-playlist",-1).length);
+            assertTrue("Video output subdirectory",clipboard.get().contains("/Video"));
             js("document.getElementById('copy').click();true");
             await("JSON.parse(Android.getState()).history.length===1");
             js("document.getElementById('historyBtn').click();true");

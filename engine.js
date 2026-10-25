@@ -62,14 +62,14 @@
     if (b <= a) throw Error('Kesit ' + (i+1) + ': bitiş başlangıçtan büyük olmalı.');
     return {start:String(a), end:b === Infinity ? 'inf' : String(b)};
   }
-  function template(url, settings, cut, index) {
-    const u = new URL(url);
-    const story = /^(?:www\.)?instagram\.com$/.test(u.hostname) && u.pathname.match(/^\/stories\/([\w.]+)/);
-    const name = story ? story[1] : '%(channel,uploader,creator|unknown)s';
+  // Runs once per extracted item, so every Story URL supplies its own account name.
+  const storyMetadata = String.raw`webpage_url:https?://(?:www\.)?instagram\.com/stories/(?P<channel>[^/?#]+)(?:/|$)`;
+  function template(settings, hasCuts) {
     const type = settings.mode === 'audio' ? 'audio-best' : settings.mode;
-    const suffix = cut ? '-cut' + (index+1) + '-' + cut.start + '-' + cut.end : '';
-    // Stable fallbacks avoid NA and repeat-download names changing with current time.
-    return name + '-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(id)s-' + type + suffix + '.%(ext)s';
+    // yt-dlp supplies actual section bounds per file. Never use one literal range
+    // or autonumber alone for several sections of the same video.
+    const suffix = hasCuts ? '-cut%(section_start)s-%(section_end|end)s' : '';
+    return '%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(id)s-' + type + suffix + '.%(ext)s';
   }
   function build(input) {
     const s = {...defaults, ...input.settings};
@@ -79,28 +79,27 @@
     if (!urls.length) throw Error('En az bir http/https içerik bağlantısı girin.');
     const min = numeric(s.min, 'Sleep min'), max = numeric(s.max, 'Sleep max'), req = numeric(s.requests, 'Sleep requests');
     if (max < min) throw Error('Sleep max, minimumdan küçük olamaz.');
-    const folder = shellPath(s.folder), cookies = s.cookies.trim() ? shellPath(s.cookies) : null;
+    shellPath(s.folder); // Validate the base before adding the mode's output subdirectory.
+    const outputSubdir = s.mode === 'audio' ? 'Audio' : s.mode === 'still' ? 'SClip' : 'Video';
+    const folder = shellPath(s.folder.trim().replace(/\/+$/, '') + '/' + outputSubdir);
+    const cookies = s.cookies.trim() ? shellPath(s.cookies) : null;
     const cuts = ['av','video'].includes(s.mode) ? (input.cuts || []).map(validateCut) :
       s.mode === 'still' ? [{start:'0',end:'1'}] : [];
-    const commands = [];
-    for (const url of urls) {
-      for (const [index, cut] of (cuts.length ? cuts : [null]).entries()) {
-        const args = [s.engine === 'normal' ? 'yt-dlp' : '"$HOME"/yt-dlp-story-test/bin/yt-dlp', '--ignore-config', '--no-playlist'];
-        if (cookies) args.push('--cookies ' + cookies);
-        args.push('--sleep-requests ' + req, '--sleep-interval ' + min, '--max-sleep-interval ' + max,
-          s.overwrite ? '--no-overwrites' : '--force-overwrites');
-        if (s.mode === 'audio') {
-          args.push('-f ' + quote('ba/b'), '-x', '--audio-format best');
-          if (s.thumb) args.push('--embed-thumbnail', '--convert-thumbnails jpg');
-        } else if (s.mode === 'still' || s.mode === 'video') args.push('-f ' + quote('bv'));
-        else args.push('-f ' + quote('bv+ba/b'));
-        if (cut) args.push('--download-sections ' + quote('*' + cut.start + '-' + cut.end));
-        args.push('-P ' + folder, '-o ' + quote(template(url,s,cut,index)), '--', quote(url));
-        commands.push(args.join(' \\\n  '));
-      }
-    }
-    return {command: '(\n' + commands.join(';\n\n') + '\n)', urls, settings:s,
-      cuts:['av','video'].includes(s.mode) ? cuts : [], commandCount:commands.length};
+    const args = [s.engine === 'normal' ? 'yt-dlp' : '"$HOME"/yt-dlp-story-test/bin/yt-dlp', '--ignore-config', '--no-playlist'];
+    if (cookies) args.push('--cookies ' + cookies);
+    args.push('--sleep-requests ' + req, '--sleep-interval ' + min, '--max-sleep-interval ' + max,
+      s.overwrite ? '--no-overwrites' : '--force-overwrites');
+    if (s.mode === 'audio') {
+      args.push('-f ' + quote('ba/b'), '-x', '--audio-format best');
+      if (s.thumb) args.push('--embed-thumbnail', '--convert-thumbnails jpg');
+    } else if (s.mode === 'still' || s.mode === 'video') args.push('-f ' + quote('bv'));
+    else args.push('-f ' + quote('bv+ba/b'));
+    for (const cut of cuts) args.push('--download-sections ' + quote('*' + cut.start + '-' + cut.end));
+    if (urls.some(url=>/^https:\/\/www\.instagram\.com\/stories\//.test(url))) args.push('--parse-metadata ' + quote(storyMetadata));
+    args.push('-P ' + folder,
+      '-o ' + quote(template(s,cuts.length>0)), '--', ...urls.map(quote));
+    return {command:args.join(' \\\n  '), urls, settings:s,
+      cuts:['av','video'].includes(s.mode) ? cuts : [], commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, parseUrls, validateCut, template, build};
+  return {defaults, normalizeSettings, quote, shellPath, parseUrls, validateCut, template, storyMetadata, build};
 });
