@@ -156,7 +156,7 @@ public final class MainActivity extends Activity {
                     }
                     Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("text/plain");
+                    intent.setType(filename.endsWith(".json") ? "application/json" : "text/plain");
                     intent.putExtra(Intent.EXTRA_TITLE, filename.replaceAll("[^a-zA-Z0-9._-]", "_"));
                     exporting = true;
                     startActivityForResult(intent, EXPORT_TEXT);

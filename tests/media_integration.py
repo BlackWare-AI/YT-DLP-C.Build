@@ -81,8 +81,8 @@ def main():
         wrapper.write_text('#!/bin/sh\nexec '+shlex.quote(sys.executable)+' '+shlex.quote(str(Path(__file__).resolve()))+' --child "$@"\n')
         wrapper.chmod(0o755)
         env={**os.environ,'PATH':str(bindir)+os.pathsep+os.environ['PATH'],'FIXTURE_PORT':str(server.server_port),'FIXTURE_LOG':str(folder/'invocations.jsonl')}
-        def command(mode,cuts=(),thumb=True,links='https://www.instagram.com/stories/fixture.user/501'):
-            data=dict(links=links,cuts=list(cuts),settings=dict(engine='normal',mode=mode,folder=str(output),cookies='',requests='0',min='0',max='0',thumb=thumb))
+        def command(mode,cuts=(),thumb=True,links='https://www.instagram.com/stories/fixture.user/501',selection=None):
+            data=dict(links=links,cuts=list(cuts),selection=selection or {},settings=dict(engine='normal',mode=mode,folder=str(output),cookies='',requests='0',min='0',max='0',thumb=thumb))
             script="const B=require('./engine');process.stdout.write(B.build(JSON.parse(process.argv[1])).command)"
             return run(['node','-e',script,json.dumps(data)],cwd=ROOT,text=True).stdout
         try:
@@ -139,6 +139,26 @@ def main():
                 name=ydl.evaluate_outtmpl(template,{'id':'501','ext':'mp4'})
                 assert name=='unknown-undated-0000-501.mp4',name
             print('PASS: yt-dlp evaluates missing metadata without NA')
+            # Feed synthetic collections through yt-dlp's real playlist processor.
+            # The app still never contacts Instagram; these are local metadata fixtures.
+            import yt_dlp
+            cases=[({},list(range(1,7))),({'only':'3'},[3]),({'after':'3'},[4,5,6]),({'before':'3'},[1,2]),({'after':'2','before':'5'},[3,4])]
+            for mode in ['av','video','audio','still']:
+                for selection,expected in cases:
+                    cmd=command(mode,links='https://instagram.com/stories/collection.user https://instagram.com/p/CAROUSEL https://instagram.com/stories/direct.user/9',selection=selection)
+                    argv=shlex.split(cmd)
+                    parsed=yt_dlp.parse_options(argv[1:])
+                    assert parsed.ydl_opts['noplaylist'] is True
+                    with yt_dlp.YoutubeDL({**parsed.ydl_opts,'quiet':True,'simulate':True}) as ydl:
+                        for kind in ['story','post','profile']:
+                            items=[dict(id=str(n),title=kind+str(n),url=f'http://127.0.0.1:{server.server_port}/video.mp4',ext='mp4',vcodec='h264',acodec='none') for n in range(1,7)]
+                            result=ydl.process_ie_result(dict(_type='playlist',id=kind,extractor='fixture',extractor_key='Fixture',entries=items),download=False)
+                            assert [int(e['id']) for e in result['entries']]==expected,(mode,selection,kind,result)
+                        # Individual videos are not playlist-index-filtered.
+                        direct=ydl.process_ie_result(dict(id='9',title='direct',url=f'http://127.0.0.1:{server.server_port}/video.mp4',ext='mp4',vcodec='h264',acodec='none'),download=False)
+                        assert direct['id']=='9'
+            print('PASS: real yt-dlp item selection: blank/single/before/after/range, four modes, collection playlists and unaffected direct media')
+
         except subprocess.CalledProcessError as e:
             print(e.stdout); raise
         finally: server.shutdown()

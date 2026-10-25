@@ -16,11 +16,13 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Download modes:** video with audio, video without audio, audio only, and a one-second StillClip.
 - **Multiple Instagram links:** accept Stories, `/reel/`, `/p/`, and `/tv/` links on `instagram.com` or `www.instagram.com`. Clean share parameters, split glued links, and remove duplicates without querying the media. Other domains, credentials and spoofed domains are rejected; Story IDs have no length restriction.
 - **Paste from clipboard:** tap the small clipboard button inside the link field to append Instagram links without replacing the current draft. Repeated links are skipped. The clipboard is read only when you tap the button.
+- **Optional item positions:** for Story account lists, profile lists and post carousels, leave the three fields blank or enter an exact ordinal, an exclusive after/before boundary, or both boundaries. The panel sits between links and video cuts and works in every mode. For example, after 3 and before 7 selects items 4–6 via `--playlist-items "4:6"`. Indices are 1-based in the order returned by yt-dlp, not media IDs or guaranteed chronological order. The same selection applies to collection links in the batch; direct Story links retain `--no-playlist`. Profile-post enumeration depends on the selected motor and is currently marked non-working in upstream yt-dlp; Story account URLs use `/stories/username/`.
 - **Video segments:** add multiple start/end ranges, including ranges that end at the end of a video.
 - **Audio artwork:** optionally embed available thumbnails in audio files.
 - **Advanced settings:** customize download and cookies paths, request delays, and overwrite behavior.
 - **Command preview and copy:** inspect the complete shell command before using it.
 - **Local history:** review previous commands and export records as text.
+- **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, item selection, cuts and complete history. Cookies file contents are never read. This change adds export only.
 - **Offline and private:** no analytics, ads, account login, or network access required by the app.
 - **AMOLED-friendly interface:** a minimal black design optimized for Android.
 
@@ -31,7 +33,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 3. Select the download mode.
 4. Paste one or more supported links.
 5. Add video segments if needed, or adjust paths and delays under advanced settings.
-6. Tap the full-width **Copy Command** button below the engine/mode panel, open Termux, paste the command, and run it. Successful copying saves the command to history and clears the link field while keeping settings and segments. Failed copying keeps the links.
+6. Tap the full-width **Copy Command** button below the engine/mode panel, open Termux, paste the command, and run it. Successful copying saves the command to history and clears the link field, video segments and item selection while keeping engine, format and advanced settings. Failed copying keeps the links.
 
 All links in one batch use the same mode and settings. The application does not check whether a media item exists or is accessible.
 
@@ -70,7 +72,7 @@ Actual downloading and any resulting errors are handled by yt-dlp when you run t
 
 ## Privacy and data
 
-Settings, drafts, and command history are stored locally on the device. Every draft edit is synchronously committed to Android SharedPreferences, so saved links survive backgrounding, process termination, crashes, and device restarts. Links are cleared only by user deletion or successful copying; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
+Settings, drafts, and command history are stored locally on the device. Every draft edit is synchronously committed to Android SharedPreferences, so saved links survive backgrounding, process termination, crashes, and device restarts. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
 
 ## Building from source
 
@@ -79,7 +81,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.0.3`
+- Current documented version: `1.0.4`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -87,7 +89,7 @@ To build locally, use JDK 17, Android SDK 35, and the project's Gradle configura
 gradle :app:assembleDebug
 ```
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.3-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.4-debug`.
 
 Validation commands:
 

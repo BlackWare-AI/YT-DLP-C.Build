@@ -23,6 +23,33 @@
     // Only the leading HOME is expanded; user-supplied dollars remain literal.
     return s.startsWith('$HOME') ? '"$HOME' + quote(s.slice(5)).slice(1) : quote(s);
   }
+  const reservedProfiles = new Set(['accounts','settings','explore','direct','about','legal','developer','developers','web','challenge','oauth','api','emails','directory','reels','reel','stories','p','tv']);
+  function collectionKind(url) {
+    const path = new URL(url).pathname;
+    if (/^\/stories\/[\w.]+$/.test(path)) return 'stories';
+    if (/^\/p\/[\w-]+$/.test(path)) return 'post';
+    if (/^\/[\w.]+$/.test(path) && !reservedProfiles.has(path.slice(1).toLowerCase())) return 'profile';
+    return null;
+  }
+  function selectionSpec(selection) {
+    const values = {};
+    for (const key of ['only','after','before']) {
+      const raw = (selection || {})[key];
+      const value = raw === undefined || raw === null ? '' : String(raw).trim();
+      if (value && (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) >= Number.MAX_SAFE_INTEGER))
+        throw Error('Öğe sırası 1 veya daha büyük bir tam sayı olmalı.');
+      values[key] = value ? Number(value) : null;
+    }
+    if (values.only !== null) {
+      if (values.after !== null || values.before !== null) throw Error('Yalnızca sıra ile sonrası/öncesi birlikte kullanılamaz.');
+      return String(values.only);
+    }
+    if (values.after === null && values.before === null) return null;
+    const start = values.after === null ? 1 : values.after + 1;
+    const end = values.before === null ? null : values.before - 1;
+    if (end !== null && end < start) throw Error('Sonrası/öncesi arasında seçilecek öğe yok.');
+    return start + ':' + (end === null ? '' : end);
+  }
   function parseUrls(text, skipInvalid) {
     const urls = [];
     const source = String(text).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
@@ -36,7 +63,7 @@
           throw Error('Yalnızca instagram.com içerik bağlantıları kabul edilir.');
         u.hostname = 'www.instagram.com'; u.protocol = 'https:'; u.search = ''; u.hash = '';
         u.pathname = u.pathname.replace(/\/+$/, '');
-        if (!/^\/(?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)$/.test(u.pathname))
+        if (!/^\/(?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)$/.test(u.pathname) && collectionKind(u.href) !== 'profile')
           throw Error('Instagram içerik bağlantısı girin (Story, Reels, gönderi veya TV).');
         if (!urls.includes(u.href)) urls.push(u.href);
       } catch (e) {
@@ -78,6 +105,7 @@
     if (!['normal','experimental'].includes(s.engine) || !['av','video','audio','still'].includes(s.mode)) throw Error('Geçersiz motor veya biçim.');
     const urls = parseUrls(input.links);
     if (!urls.length) throw Error('En az bir Instagram içerik bağlantısı girin.');
+    const items = urls.some(collectionKind) ? selectionSpec(input.selection) : null;
     const min = numeric(s.min, 'Sleep min'), max = numeric(s.max, 'Sleep max'), req = numeric(s.requests, 'Sleep requests');
     if (max < min) throw Error('Sleep max, minimumdan küçük olamaz.');
     shellPath(s.folder); // Validate the base before adding the mode's output subdirectory.
@@ -87,6 +115,7 @@
     const cuts = ['av','video'].includes(s.mode) ? (input.cuts || []).map(validateCut) :
       s.mode === 'still' ? [{start:'0',end:'1'}] : [];
     const args = [s.engine === 'normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp'), '--ignore-config', '--no-playlist'];
+    if (items) args.push('--playlist-items ' + quote(items));
     if (cookies) args.push('--cookies ' + cookies);
     args.push('--sleep-requests ' + req, '--sleep-interval ' + min, '--max-sleep-interval ' + max,
       s.overwrite ? '--no-overwrites' : '--force-overwrites');
@@ -100,7 +129,7 @@
     args.push('-P ' + folder,
       '-o ' + quote(template(s,cuts.length>0)), '--', ...urls.map(quote));
     return {command:args.join(' \\\n  '), urls, settings:s,
-      cuts:['av','video'].includes(s.mode) ? cuts : [], commandCount:1};
+      cuts:['av','video'].includes(s.mode) ? cuts : [], selection:input.selection || {}, commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, parseUrls, validateCut, template, storyMetadata, build};
+  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, parseUrls, validateCut, template, storyMetadata, build};
 });

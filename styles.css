@@ -13,3 +13,5 @@ header{padding:12px 2px 8px;margin-top:10px}
 .mode-grid .mode-symbol{white-space:nowrap}
 
 .copy-action{margin-bottom:14px}.copy-action .primary{margin-top:0}.copy-action #status{margin:7px 4px 0}.links-input{position:relative}.links-input textarea{display:block;padding-bottom:58px}.paste-button{position:absolute;right:8px;bottom:8px;width:44px;height:44px;padding:10px;display:flex;align-items:center;justify-content:center;background:#151515;color:#ccc;border-radius:10px}
+
+.item-section{border-color:#292929}.item-inputs input:placeholder-shown{background:#070707;border-color:#292929;color:#888}.item-section.has-selection{border-color:#555}.item-section.has-selection #itemBadge{color:#ddd}.item-inputs label{font-size:10px;margin-top:0}.backup-button{width:100%;margin:0 0 4px;background:#151515}
