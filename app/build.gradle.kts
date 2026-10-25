@@ -1,20 +1,38 @@
 plugins { id("com.android.application") }
 android {
- namespace = "ai.blackware.ytdlpcommandbuilder"
- compileSdk = 35
- defaultConfig { applicationId = "ai.blackware.ytdlpcommandbuilder"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0.0" }
- buildTypes {
-  getByName("debug") { isMinifyEnabled = false }
-  getByName("release") {
-   isMinifyEnabled = true
-   isShrinkResources = true
-   proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-  }
- }
- compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+    namespace = "com.blackware.ytdlpcommandbuilder"
+    compileSdk = 35
+    defaultConfig {
+        applicationId = "com.blackware.ytdlpcommandbuilder"
+        minSdk = 29
+        targetSdk = 35
+        versionCode = 3
+        versionName = "1.0.2"
+        testInstrumentationRunner = "android.test.InstrumentationTestRunner"
+    }
+    signingConfigs {
+        getByName("debug") {
+            System.getenv("YTDLP_DEBUG_KEYSTORE")?.let { storeFile = file(it) }
+        }
+    }
+    buildTypes {
+        getByName("debug") { isMinifyEnabled = false }
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/webAssets"))
+    useLibrary("android.test.runner")
+    useLibrary("android.test.base")
 }
-tasks.register<Copy>("copyWebAssets") {
- from(rootProject.file("index.html"), rootProject.file("app.js"))
- into(layout.projectDirectory.dir("src/main/assets"))
+val copyWebAssets by tasks.registering(Sync::class) {
+    from(rootProject.files("index.html", "engine.js", "app.js", "styles.css"))
+    into(layout.buildDirectory.dir("generated/webAssets"))
 }
-tasks.named("preBuild") { dependsOn("copyWebAssets") }
+tasks.named("preBuild") { dependsOn(copyWebAssets) }

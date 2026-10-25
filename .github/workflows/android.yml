@@ -1,0 +1,125 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      YTDLP_DEBUG_KEYSTORE: ${{ github.workspace }}/.debug-signing/debug.keystore
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Command engine and shell tests
+        run: node --test tests/engine.test.cjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Reuse debug signing key for future test APK updates
+        uses: actions/cache@v4
+        with:
+          path: .debug-signing/debug.keystore
+          key: ytdlp-command-builder-debug-signing-v2
+      - name: Prepare test-only Android debug key
+        run: |
+          if [ ! -f "$YTDLP_DEBUG_KEYSTORE" ]; then
+            mkdir -p .debug-signing
+            keytool -genkeypair -keystore "$YTDLP_DEBUG_KEYSTORE" -storetype JKS -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+      - name: Build APK, instrumentation APK and lint
+        run: gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --no-daemon
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk YT-DLP-Command-Builder-1.0.2-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YT-DLP-Command-Builder-1.0.2-debug
+          path: YT-DLP-Command-Builder-1.0.2-debug.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-check-reports
+          path: app/build/reports/
+  device-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            gradle :app:connectedDebugAndroidTest --no-daemon
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.blackware.ytdlpcommandbuilder/.MainActivity
+            sleep 2
+            adb shell screencap -p /sdcard/android-phone.png
+            adb pull /sdcard/android-phone.png android-phone-${{ matrix.api }}.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-smoke-api-${{ matrix.api }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            android-phone-*.png
+  web-and-media:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.58.2
+          npx playwright install --with-deps chromium
+          python -m pip install yt-dlp==2026.10.21
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Web UI tests
+        run: node tests/ui.cjs
+      - name: Real yt-dlp and ffmpeg fixture tests
+        run: python tests/media_integration.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-ui-preview
+          path: test-results/

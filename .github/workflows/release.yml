@@ -1,16 +1,6 @@
 name: Release APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'index.html'
-      - 'app.js'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - '.github/workflows/release.yml'
 permissions:
   contents: write
 jobs:
@@ -23,10 +13,16 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/engine.test.cjs
       - name: Build minified release
         run: gradle :app:assembleRelease --no-daemon
       - name: Sign release APK
@@ -40,11 +36,11 @@ jobs:
           test -n "$SIGNING_KEYSTORE_BASE64" || { echo "::error::Signing secrets required. No debug APK will be published."; exit 1; }
           echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > release.jks
           ${ANDROID_HOME}/build-tools/35.0.0/zipalign -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
-          ${ANDROID_HOME}/build-tools/35.0.0/apksigner sign --ks release.jks --ks-pass env:SIGNING_STORE_PASSWORD --ks-key-alias "$SIGNING_KEY_ALIAS" --key-pass env:SIGNING_KEY_PASSWORD --out YT-DLP-Command-Builder-v1.0.0.apk aligned.apk
-          ${ANDROID_HOME}/build-tools/35.0.0/apksigner verify --verbose YT-DLP-Command-Builder-v1.0.0.apk
+          ${ANDROID_HOME}/build-tools/35.0.0/apksigner sign --ks release.jks --ks-pass env:SIGNING_STORE_PASSWORD --ks-key-alias "$SIGNING_KEY_ALIAS" --key-pass env:SIGNING_KEY_PASSWORD --out YT-DLP-Command-Builder-v1.0.2.apk aligned.apk
+          ${ANDROID_HOME}/build-tools/35.0.0/apksigner verify --verbose YT-DLP-Command-Builder-v1.0.2.apk
           rm -f release.jks aligned.apk
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.0.0 YT-DLP-Command-Builder-v1.0.0.apk --title "YT-DLP Command Builder v1.0.0" --notes "Signed release APK; R8 minify and resource shrink enabled." --latest
+          gh release create v1.0.2 YT-DLP-Command-Builder-v1.0.2.apk --title "YT-DLP Command Builder v1.0.2" --notes "Signed release APK; R8 minify and resource shrink enabled." --latest
