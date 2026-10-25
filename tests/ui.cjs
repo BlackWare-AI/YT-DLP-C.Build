@@ -26,6 +26,40 @@ const root=path.resolve(__dirname,'..');
 
   assert.equal(await page.evaluate(()=>document.querySelector('.setup').nextElementSibling.contains(document.getElementById('copy'))),true);
   assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
+  await page.click('#notesBtn');
+  await page.fill('#notes','Önceki not V4S');
+  const point=await page.locator('#notes').evaluate(el=>{
+    const r=el.getBoundingClientRect(),s=getComputedStyle(el),line=parseFloat(s.lineHeight);
+    return {x:r.x+20,y:r.y+parseFloat(s.borderTopWidth)+parseFloat(s.paddingTop)+4.5*line};
+  });
+  await page.mouse.click(point.x,point.y);
+  assert.equal(await page.inputValue('#notes'),'Önceki not V4S\n\n\n\n');
+  await page.evaluate(()=>navigator.clipboard.writeText('https://www.instagram.com/hilaalats?psln=abc== V4S'));
+  await page.click('#notesPaste');
+  await page.waitForFunction(()=>document.getElementById('notes').value.endsWith('/hilaalats V4S'));
+  assert.equal(await page.inputValue('#notes'),'Önceki not V4S\n\n\n\nhttps://www.instagram.com/hilaalats V4S');
+  // Paste into an existing line, replacing only the selected text.
+  await page.locator('#notes').evaluate(el=>{el.focus();el.setSelectionRange(0,6);});
+  await page.evaluate(()=>navigator.clipboard.writeText('Yeni'));
+  await page.click('#notesPaste');
+  await page.waitForFunction(()=>document.getElementById('notes').value.startsWith('Yeni not'));
+  assert.equal(await page.inputValue('#notes'),'Yeni not V4S\n\n\n\nhttps://www.instagram.com/hilaalats V4S');
+  // Standard Android/browser paste follows the same path and preserves annotations.
+  await page.locator('#notes').evaluate(el=>{
+    el.setSelectionRange(el.value.length,el.value.length);
+    const data=new DataTransfer();data.setData('text/plain','\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663?utm_source=share&rpxt=abc V1sec');
+    el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));
+  });
+  assert.match(await page.inputValue('#notes'),/4015971660985413663 V1sec$/);
+  await page.click('#notesClose');await page.reload();await page.click('#notesBtn');
+  assert.match(await page.inputValue('#notes'),/^Yeni not V4S/);
+  assert.doesNotMatch(await page.inputValue('#notes'),/utm_source|psln|rpxt/);
+  // Existing notes and manually entered URLs are cleaned on blur, keeping all other text.
+  await page.fill('#notes','https://instagram.com/stories/didemsoydan/4015809594487502072?dlrf=abc V\nÖzel not ?silinmesin');
+  await page.click('#notesClose');await page.click('#notesBtn');
+  assert.equal(await page.inputValue('#notes'),'https://instagram.com/stories/didemsoydan/4015809594487502072 V\nÖzel not ?silinmesin');
+  await page.click('#notesClose');
+  console.log('PASS: blank-line positioning, selection paste, standard paste, Instagram cleanup, format notes and persistence');
   const note='https://instagram.com/stories/notes.user/\nV+S: 3 sonrası; SClip: ilk saniye\nÖzel istek: kapak, sonra dinle <script>literal</script>';
   await page.click('#notesBtn');assert.equal(await page.locator('#notesDialog').isVisible(),true);
   assert.equal(await page.evaluate(()=>Math.abs(document.getElementById('notesDialog').getBoundingClientRect().width-innerWidth)<1),true);
