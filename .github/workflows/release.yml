@@ -1,16 +1,6 @@
 name: Release APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'index.html'
-      - 'app.js'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - '.github/workflows/release.yml'
 permissions:
   contents: write
 jobs:
@@ -27,6 +17,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/engine.test.cjs
       - name: Build minified release
         run: gradle :app:assembleRelease --no-daemon
       - name: Sign release APK
@@ -48,3 +42,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create v1.0.0 YT-DLP-Command-Builder-v1.0.0.apk --title "YT-DLP Command Builder v1.0.0" --notes "Signed release APK; R8 minify and resource shrink enabled." --latest
+

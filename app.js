@@ -1,23 +1,151 @@
 'use strict';
-const $=id=>document.getElementById(id);
-const defaults={engine:'experimental',mode:'video',folder:'$HOME/storage/shared/Download/Apps/YT-DLPTemp',cookies:'$HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt',requests:'2',min:'6',max:'16',thumb:true,overwrite:true};
-let settings={...defaults,...JSON.parse(localStorage.getItem('builder.settings')||'{}')};
-let cuts=[];
-const history=()=>JSON.parse(localStorage.getItem('builder.history')||'[]');
-function quote(s){return "'"+s.replace(/'/g,"'\\''")+"'";}
-function shellPath(s){return '"'+s.replace(/(["\\`])/g,'\\$1').replace(/\$/g,'\\$') .replace(/\\\$HOME/g,'$HOME')+'"';}
-function renderButtons(){for(const [id,key] of [['engines','engine'],['modes','mode']])for(const b of $(id).querySelectorAll('button')){b.classList.toggle('active',b.dataset.value===settings[key]);b.setAttribute('aria-pressed',String(b.dataset.value===settings[key]));}}
-function renderCuts(){$('cuts').replaceChildren();cuts.forEach((c,i)=>{const row=document.createElement('div');row.className='cut';for(const [field,placeholder] of [['start','Başlangıç'],['end','Bitiş']]){const inp=document.createElement('input');inp.placeholder=placeholder;inp.setAttribute('aria-label',placeholder+' kesit '+(i+1));inp.value=c[field];inp.oninput=()=>{c[field]=inp.value;build();};row.append(inp);}const del=document.createElement('button');del.textContent='×';del.setAttribute('aria-label','Kesiti sil');del.onclick=()=>{cuts.splice(i,1);renderCuts();build();};row.append(del);$('cuts').append(row);});}
-function build(){const urls=[...new Set(($('links').value.match(/https?:\/\/[^\s]+/g)||[]).map(s=>s.replace(/[),;]+$/,'').split('?')[0]))];const cmd=[settings.engine==='experimental'?'"$HOME/yt-dlp-story-test/bin/yt-dlp"':'yt-dlp', '--cookies '+shellPath(settings.cookies),'--no-playlist'];if(+settings.min>=0&&+settings.max>=+settings.min){cmd.push('--sleep-interval '+Number(settings.min),'--max-sleep-interval '+Number(settings.max));}if(+settings.requests>=0)cmd.push('--sleep-requests '+Number(settings.requests));if(settings.overwrite)cmd.push('--no-overwrites');if(settings.mode==='audio'){cmd.push('-f "ba/b"','-x --audio-format m4a');if(settings.thumb)cmd.push('--embed-thumbnail');}else if(settings.mode==='still'){cmd.push('-f "bv"','--download-sections "*0-1"');}else{cmd.push('-f "bv*+ba/b"','--merge-output-format mp4');}
-if(settings.mode==='video')for(const c of cuts){if(c.start.trim()&&c.end.trim())cmd.push('--download-sections '+quote('*'+c.start.trim()+'-'+c.end.trim()));}
-cmd.push('--parse-metadata '+quote('webpage_url:https?://(?:www\\.)?instagram\\.com/stories/(?P<channel>[^/]+)/'));
-cmd.push('-P '+shellPath(settings.folder));cmd.push('-o '+quote('%(channel,uploader,creator|unknown)s-%(upload_date)s-%(timestamp>%H%M)s-%(id)s.%(ext)s'));
-cmd.push(...urls.map(quote));$('output').textContent=cmd.join(' \\\n  ');return urls.length;}
-for(const [id,key] of [['folder','folder'],['cookies','cookies'],['requests','requests'],['min','min'],['max','max'],['thumb','thumb'],['overwrite','overwrite']]){$(id)[key==='thumb'||key==='overwrite'?'checked':'value']=settings[key];$(id).addEventListener('input',()=>{settings[key]=(key==='thumb'||key==='overwrite')?$(id).checked:$(id).value;localStorage.setItem('builder.settings',JSON.stringify(settings));build();});}
-for(const [id,key] of [['engines','engine'],['modes','mode']])$(id).onclick=e=>{const b=e.target.closest('button[data-value]');if(!b)return;settings[key]=b.dataset.value;localStorage.setItem('builder.settings',JSON.stringify(settings));renderButtons();build();};
-$('links').oninput=build;$('addCut').onclick=()=>{cuts.push({start:'0',end:'1'});renderCuts();build();};$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('output').textContent);$('copy').textContent='Kopyalandı';setTimeout(()=>$('copy').textContent='Komutu kopyala',1200);}catch{alert('Tarayıcı kopyalamayı engelledi. Komutu elle seçip kopyalayın.');}};
-$('save').onclick=()=>{const n=build();if(!n)return alert('Önce bağlantı girin');const h=history();h.unshift({date:new Date().toISOString(),count:n,mode:settings.mode,engine:settings.engine,command:$('output').textContent});localStorage.setItem('builder.history',JSON.stringify(h.slice(0,500)));alert('Geçmişe kaydedildi');};
-function showHistory(){$('history').textContent=history().map(h=>h.date+' | '+h.count+' link | '+h.mode+' | '+h.engine+'\n'+h.command).join('\n\n')||'Henüz kayıt yok';}
-$('historyBtn').onclick=()=>{showHistory();$('dialog').showModal();};$('close').onclick=()=>$('dialog').close();$('clear').onclick=()=>{if(confirm('Geçmiş silinsin mi?')){localStorage.removeItem('builder.history');showHistory();}};
-$('export').onclick=()=>{const blob=new Blob([$('history').textContent],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='yt-dlp-command-history.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
-renderButtons();renderCuts();build();
+const $ = id => document.getElementById(id);
+const native = window.Android;
+let state, storageError = '';
+function readState() {
+  try {
+    const raw = native ? native.getState() : localStorage.getItem('builder.state');
+    if (raw) {
+      const v = JSON.parse(raw);
+      if (!v || !Array.isArray(v.history) || !Array.isArray(v.cuts) || !v.settings) throw Error('Kayıt yapısı geçersiz');
+      return v;
+    }
+    // Preserve the browser prototype's existing preferences and history.
+    return {settings:JSON.parse(localStorage.getItem('builder.settings') || '{}'),
+      links:'', cuts:[{start:'0',end:'1'}], history:JSON.parse(localStorage.getItem('builder.history') || '[]')};
+  } catch (e) {
+    storageError = 'Kayıtlı veriler okunamadı; mevcut kayıtların üzerine yazılmayacak. ' + e.message;
+    return {settings:{},links:'',cuts:[{start:'0',end:'1'}],history:[]};
+  }
+}
+state = readState();
+state.settings = {...Builder.defaults, ...state.settings};
+function persist() {
+  if (storageError) throw Error(storageError);
+  const raw = JSON.stringify(state);
+  if (native) { if (!native.saveState(raw)) throw Error('Veriler kaydedilemedi.'); }
+  else localStorage.setItem('builder.state', raw);
+}
+function save() { try { persist(); } catch (e) { $('status').textContent = e.message; } }
+function renderButtons() {
+  for (const [id,key] of [['engines','engine'],['modes','mode']]) {
+    for (const b of $(id).querySelectorAll('button')) {
+      const active = b.dataset.value === state.settings[key];
+      b.classList.toggle('active',active); b.setAttribute('aria-pressed',String(active));
+    }
+  }
+  $('cutSection').hidden = state.settings.mode !== 'video';
+}
+function renderCuts() {
+  $('cuts').replaceChildren();
+  state.cuts.forEach((c,i) => {
+    const row = document.createElement('div'); row.className='cut';
+    for (const [key,label] of [['start','Başlangıç'],['end','Bitiş']]) {
+      const inp = document.createElement('input'); inp.value=c[key]; inp.placeholder=label;
+      inp.setAttribute('aria-label',label+' kesit '+(i+1));
+      inp.oninput=()=>{ c[key]=inp.value; save(); preview(); }; row.append(inp);
+    }
+    const del=document.createElement('button'); del.textContent='×';
+    del.setAttribute('aria-label','Kesit '+(i+1)+' sil');
+    del.onclick=()=>{ state.cuts.splice(i,1); renderCuts(); save(); preview(); };
+    row.append(del); $('cuts').append(row);
+  });
+}
+function preview() {
+  try {
+    $('count').textContent=Builder.parseUrls(state.links).length+' bağlantı';
+    const result=Builder.build(state);
+    $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=false;
+    return result;
+  } catch(e) {
+    $('error').textContent=e.message; $('output').textContent=''; $('copy').disabled=true;
+    return null;
+  }
+}
+function hydrate() {
+  $('links').value=state.links;
+  for (const key of ['folder','cookies','requests','min','max','audioFormat','thumb','overwrite'])
+    $(key)[['thumb','overwrite'].includes(key)?'checked':'value']=state.settings[key];
+  renderButtons(); renderCuts(); preview();
+}
+async function copyText(text) {
+  if (native) { if (!native.copy(text)) throw Error('Pano işlemi başarısız.'); }
+  else await navigator.clipboard.writeText(text);
+}
+function exportText(text,filename) {
+  if (native) { native.exportText(text,filename); return; }
+  const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function historyText(records) {
+  return records.map(h=>new Date(h.date).toLocaleString('tr-TR')+' | '+(h.urls?.length ?? h.count)+' bağlantı | '+h.mode+' | '+h.engine+
+    '\nYalnızca komut oluşturuldu ve kopyalandı.\n'+(h.urls || []).join('\n')+'\n'+
+    (h.snapshot ? JSON.stringify(h.snapshot.settings,null,2)+'\nKesitler: '+JSON.stringify(h.snapshot.cuts)+'\n' : '')+h.command).join('\n\n');
+}
+function button(label, action) {
+  const b=document.createElement('button'); b.textContent=label;
+  b.onclick=async()=>{ try { await action(); } catch(e) { $('status').textContent=e.message; alert(e.message); } };
+  return b;
+}
+function showHistory() {
+  $('history').replaceChildren(); let day='';
+  if (!state.history.length) $('history').textContent='Henüz kayıt yok.';
+  state.history.forEach((h,i)=>{
+    const d=new Date(h.date), key=d.toLocaleDateString('tr-TR');
+    if (key!==day) { const title=document.createElement('h3'); title.textContent=d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}); $('history').append(title); day=key; }
+    const item=document.createElement('details'); item.className='history-item';
+    const summary=document.createElement('summary');
+    summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(h.urls?.length ?? h.count)+' bağlantı | '+
+      ({video:'Video',audio:'Ses',still:'StillClip'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
+    item.append(summary);
+    const pre=document.createElement('pre'); pre.textContent=historyText([h]); item.append(pre);
+    const actions=document.createElement('div'); actions.className='group';
+    actions.append(button('Kopyala',()=>copyText(h.command)),button('TXT dışa aktar',()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
+      button('Tekrar düzenle',()=>{
+        if (!h.snapshot) { alert('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.'); return; }
+        state.settings={...Builder.defaults,...h.snapshot.settings}; state.links=h.snapshot.links;
+        state.cuts=JSON.parse(JSON.stringify(h.snapshot.cuts)); save(); hydrate(); $('dialog').close(); window.scrollTo(0,0);
+      }), button('Sil',()=>{
+        if (!confirm('Bu geçmiş kaydı silinsin mi?')) return;
+        const old=state.history; state.history=old.filter((_,n)=>n!==i);
+        try { persist(); } catch(e) { state.history=old; throw e; } showHistory();
+      }));
+    item.append(actions); $('history').append(item);
+  });
+}
+for (const key of ['folder','cookies','requests','min','max','audioFormat','thumb','overwrite']) {
+  $(key).oninput=()=>{ state.settings[key]=['thumb','overwrite'].includes(key)?$(key).checked:$(key).value; save(); preview(); };
+}
+for (const [id,key] of [['engines','engine'],['modes','mode']]) $(id).onclick=e=>{
+  const b=e.target.closest('button[data-value]'); if (!b) return;
+  state.settings[key]=b.dataset.value; save(); renderButtons(); preview();
+};
+$('links').oninput=()=>{state.links=$('links').value; save(); preview();};
+$('addCut').onclick=()=>{state.cuts.push({start:'0',end:'1'}); renderCuts(); save(); preview();};
+$('copy').onclick=async()=>{
+  const result=preview(); if (!result) return;
+  try {
+    await copyText(result.command);
+    // Keep old entries; deduplicate only identical consecutive operations.
+    if (state.history[0]?.command!==result.command) {
+      const record={date:new Date().toISOString(),count:result.urls.length,urls:result.urls,
+        engine:state.settings.engine,mode:state.settings.mode,command:result.command,
+        snapshot:JSON.parse(JSON.stringify({settings:state.settings,links:state.links,cuts:state.cuts}))};
+      state.history.unshift(record);
+      try { persist(); } catch(e) { state.history.shift(); throw Error('Komut kopyalandı, geçmiş kaydedilemedi: '+e.message); }
+    }
+    $('status').textContent='Komut kopyalandı · Geçmişte kayıtlı';
+  } catch(e) { $('status').textContent=e.message; }
+};
+$('historyBtn').onclick=()=>{showHistory(); $('dialog').showModal();};
+$('close').onclick=()=>$('dialog').close();
+$('clear').onclick=()=>{
+  if (!confirm('Tüm işlem geçmişi kalıcı olarak silinsin mi?')) return;
+  const old=state.history; state.history=[];
+  try { persist(); showHistory(); } catch(e) { state.history=old; alert(e.message); }
+};
+$('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
+window.handleBack=()=>{if ($('dialog').open) { $('dialog').close(); return true; } return false;};
+hydrate();
+if(storageError) $('status').textContent=storageError;

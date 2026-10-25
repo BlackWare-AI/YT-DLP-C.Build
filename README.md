@@ -19,3 +19,4 @@ GitHub Pages ile index.html dosyasını yayınlayın veya statik bir web sunucus
 Cookies içeriği saklanmaz; yalnızca dosya yolu saklanır. Geçmiş tarayıcının localStorage alanındadır; veriler silinirse kayıtlar kaybolur. TXT dışa aktarabilirsiniz.
 
 Instagram Story erişimi geçerli oturum ve yt-dlp extractor uyumluluğuna bağlıdır. Kesitleri ve ffmpeg davranışını cihazda test edin.
+
