@@ -81,22 +81,17 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: |
-            adb install "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk"
-            adb shell am start -W -n com.blackware.ytdlpcommandbuilder/.MainActivity
-            sleep 2
-            adb shell pidof com.blackware.ytdlpcommandbuilder
-            adb shell uiautomator dump /sdcard/release-ui.xml
-            adb pull /sdcard/release-ui.xml release-ui.xml
-            grep -q 'Komutu kopyala' release-ui.xml
-            grep -q 'Motor seç' release-ui.xml
+          script: bash tests/release-smoke.sh
       - name: Keep signed APK and launch evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: signed-release-${{ steps.version.outputs.version }}
           path: |
             YT-DLP-Command-Builder-v*.apk
-            release-ui.xml
+            release-ui*.xml
+            release-screen.png
+            release-logcat.txt
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
