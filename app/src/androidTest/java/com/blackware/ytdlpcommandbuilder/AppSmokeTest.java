@@ -35,7 +35,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
         long deadline=SystemClock.uptimeMillis()+15000;
         do { if ("true".equals(js(expression))) return; SystemClock.sleep(100); }
         while (SystemClock.uptimeMillis()<deadline);
-        fail("Condition not met: "+expression);
+        fail("Condition not met: "+expression+"; UI state: "+js("JSON.stringify({ready:document.readyState,count:document.getElementById('count')&&document.getElementById('count').textContent,cuts:document.querySelectorAll('#cuts .cut').length,error:document.getElementById('error')&&document.getElementById('error').textContent})"));
     }
     private void launch() {
         Intent intent=new Intent(getInstrumentation().getTargetContext(),MainActivity.class);
@@ -83,7 +83,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
         getInstrumentation().getTargetContext().getSharedPreferences("builder",0).edit().clear().commit();
         launch();
         try {
-            await("typeof Builder==='object' && document.getElementById('copy')!==null");
+            await("document.readyState==='complete' && typeof window.handleBack==='function'");
             js("document.getElementById('links').value='https://instagram.com/stories/user.name/123?utm_source=ahttps://instagram.com/reel/abc/';document.getElementById('links').dispatchEvent(new Event('input'));document.querySelector('#engines [data-value=normal]').click();document.getElementById('addCut').click();document.getElementById('addCut').click();true");
             await("document.getElementById('count').textContent==='2 bağlantı' && document.querySelectorAll('#cuts .cut').length===2 && !document.getElementById('copy').disabled");
             js("document.getElementById('copy').click();true");
