@@ -30,6 +30,8 @@ def child():
                               vcodec='h264',acodec='none',width=160,height=120,fps=24),
                          dict(format_id='a',url=base+'audio.m4a',ext='m4a',
                               vcodec='none',acodec='aac',abr=96)])
+    if os.environ.get('FIXTURE_OPUS') == '1':
+        info['formats'].append(dict(format_id='opus-best',url=base+'audio.opus',ext='opus',vcodec='none',acodec='opus',abr=160))
     with yt_dlp.YoutubeDL(parsed.ydl_opts) as ydl:
         ydl.process_ie_result(info,download=True)
 
@@ -61,9 +63,10 @@ def main():
             except (BrokenPipeError,ConnectionResetError): pass
     with tempfile.TemporaryDirectory(prefix='builder-media-') as td:
         folder=Path(td); media=folder/'media'; media.mkdir(); output=folder/'output'; output.mkdir()
-        run(['ffmpeg','-v','error','-f','lavfi','-i','testsrc2=size=160x120:rate=24','-t','6','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',str(media/'video.mp4')])
+        run(['ffmpeg','-v','error','-f','lavfi','-i','testsrc2=size=160x120:rate=24','-t','6','-c:v','libx264','-pix_fmt','yuv420p','-g','24','-keyint_min','24','-sc_threshold','0','-movflags','+faststart',str(media/'video.mp4')])
         run(['ffmpeg','-v','error','-f','lavfi','-i','sine=frequency=440','-t','6','-c:a','aac',str(media/'audio.m4a')])
         run(['ffmpeg','-v','error','-f','lavfi','-i','color=c=blue:s=128x128','-frames:v','1','-threads','1',str(media/'cover.jpg')])
+        run(['ffmpeg','-v','error','-f','lavfi','-i','sine=frequency=880','-t','6','-c:a','libopus','-b:a','160k',str(media/'audio.opus')])
         server=http.server.ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Quiet,directory=str(media)))
         threading.Thread(target=server.serve_forever,daemon=True).start()
         bindir=folder/'bin'; bindir.mkdir()
@@ -71,16 +74,17 @@ def main():
         wrapper.write_text('#!/bin/sh\nexec '+shlex.quote(sys.executable)+' '+shlex.quote(str(Path(__file__).resolve()))+' --child "$@"\n')
         wrapper.chmod(0o755)
         env={**os.environ,'PATH':str(bindir)+os.pathsep+os.environ['PATH'],'FIXTURE_PORT':str(server.server_port)}
-        def command(mode,cuts=(),audio='m4a',links='https://www.instagram.com/stories/fixture.user/501'):
-            data=dict(links=links,cuts=list(cuts),settings=dict(engine='normal',mode=mode,folder=str(output),cookies='',requests='0',min='0',max='0',audioFormat=audio))
+        def command(mode,cuts=(),thumb=True,links='https://www.instagram.com/stories/fixture.user/501'):
+            data=dict(links=links,cuts=list(cuts),settings=dict(engine='normal',mode=mode,folder=str(output),cookies='',requests='0',min='0',max='0',thumb=thumb))
             script="const B=require('./engine');process.stdout.write(B.build(JSON.parse(process.argv[1])).command)"
             return run(['node','-e',script,json.dumps(data)],cwd=ROOT,text=True).stdout
         try:
             cuts=[dict(start='0',end='1'),dict(start='2',end='3'),dict(start='-1',end='inf')]
-            cmd=command('video',cuts)
+            cmd=command('av',cuts)
+            assert '--force-keyframes-at-cuts' not in cmd
             run(['bash','-n'],input=cmd,text=True)
             result=run(['bash','-c',cmd],env=env,text=True)
-            videos=sorted(output.glob('*-video-cut*.mp4'))
+            videos=sorted(output.glob('*-av-cut*.mp4'))
             assert len(videos)==3, result.stdout
             for p in videos:
                 meta=probe(p)
@@ -92,19 +96,28 @@ def main():
             run(['bash','-c',cmd],env=env,text=True)
             assert before=={p.name:(p.stat().st_mtime_ns,p.read_bytes()) for p in videos}
             print('PASS: repeated command preserves existing files')
-            for fmt in ['m4a','mp3']:
-                log=run(['bash','-c',command('audio',audio=fmt)],env=env,text=True)
-                files=list(output.glob('*-'+fmt+'.'+fmt)); assert len(files)==1,log.stdout
-                streams=probe(files[0])['streams']
-                assert any(s['codec_type']=='audio' for s in streams), streams
-                assert any(s.get('disposition',{}).get('attached_pic')==1 for s in streams), streams
-                assert 'fixture.user-20261025-' in files[0].name and '123456789' not in files[0].name
-                print('PASS: '+fmt+' actual audio conversion, embedded cover and username filename')
+            log=run(['bash','-c',command('audio')],env=env,text=True)
+            files=list(output.glob('*-audio-best.m4a')); assert len(files)==1,log.stdout
+            streams=probe(files[0])['streams']
+            assert any(s['codec_type']=='audio' and s['codec_name']=='aac' for s in streams),streams
+            assert any(s.get('disposition',{}).get('attached_pic')==1 for s in streams),streams
+            assert 'fixture.user-20261025-' in files[0].name and '123456789' not in files[0].name
+            print('PASS: best audio preserves AAC and embeds source cover without MP3 conversion')
+            log=run(['bash','-c',command('video')],env=env,text=True)
+            files=list(output.glob('*-video.mp4')); assert len(files)==1,log.stdout
+            assert all(s['codec_type']!='audio' for s in probe(files[0])['streams'])
+            print('PASS: explicit silent video contains no audio')
             log=run(['bash','-c',command('still')],env=env,text=True)
             files=list(output.glob('*-still-cut1-0-1.mp4')); assert len(files)==1,log.stdout
             meta=probe(files[0]); assert abs(float(meta['format']['duration'])-1)<0.2
             assert all(s['codec_type']!='audio' for s in meta['streams'])
             print('PASS: StillClip actual first second without audio')
+            # With a better Opus source, best must select/preserve it rather than force AAC/MP3.
+            best_folder=output/'best-opus';best_folder.mkdir()
+            log=run(['bash','-c',command('audio',thumb=False).replace(str(output),str(best_folder))],env={**env,'FIXTURE_OPUS':'1'},text=True)
+            files=list(best_folder.glob('*-audio-best.opus'));assert len(files)==1,log.stdout
+            assert any(s['codec_name']=='opus' for s in probe(files[0])['streams'])
+            print('PASS: better Opus source selected over AAC and retained as Opus')
             from yt_dlp import YoutubeDL
             with YoutubeDL({'quiet':True}) as ydl:
                 template='%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(id)s.%(ext)s'

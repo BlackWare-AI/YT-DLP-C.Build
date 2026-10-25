@@ -11,10 +11,27 @@ test('deduplicate canonical URLs',()=>assert.equal(B.parseUrls(story(1)+' '+stor
 test('Reels and posts',()=>assert.equal(B.parseUrls('https://instagram.com/reel/De5cfG-vaDc/?igsh=a https://www.instagram.com/p/abc/').length,2));
 test('generic query remains meaningful',()=>assert.equal(B.parseUrls('https://www.youtube.com/watch?v=abc&utm_source=share')[0],'https://www.youtube.com/watch?v=abc'));
 test('manual normal/experimental engines',()=>{assert.match(B.build(input({engine:'normal'})).command,/\n?yt-dlp/);assert.match(B.build(input()).command,/"\$HOME"\/yt-dlp-story-test/);});
-test('video includes audio and mp4 merger',()=>assert.match(B.build(input()).command,/-f 'bv\*\+ba\/b'[\s\S]*--merge-output-format mp4/));
-for (const audioFormat of ['m4a','mp3']) test(audioFormat+' audio embeds thumbnail',()=>{
- const c=B.build(input({mode:'audio',audioFormat})).command;
- assert.match(c,new RegExp('--audio-format '+audioFormat));assert.match(c,/--embed-thumbnail/);assert.match(c,/--convert-thumbnails jpg/);
+test('video plus audio selects best independent streams with automatic merge container',()=>{
+ const c=B.build(input({mode:'av'})).command;
+ assert.match(c,/-f 'bv\+ba\/b'/);assert.doesNotMatch(c,/--merge-output-format/);
+});
+test('silent video selects best video only',()=>assert.match(B.build(input({mode:'video'})).command,/-f 'bv'/));
+test('audio selects best source without forced m4a or mp3',()=>{
+ for(const oldFormat of ['m4a','mp3','garbage']){
+  const r=B.build(input({mode:'audio',audioFormat:oldFormat}));
+  assert.match(r.command,/-f 'ba\/b'/);assert.match(r.command,/--audio-format best/);
+  assert.match(r.command,/--embed-thumbnail/);assert.doesNotMatch(r.command,/--audio-format (m4a|mp3)/);
+  assert.equal(r.settings.audioFormat,undefined);
+ }
+});
+test('no mode ever forces keyframe re-encoding',()=>{
+ for(const mode of ['av','video','audio','still'])
+  assert.doesNotMatch(B.build(input({mode},[{start:0,end:1},{start:3,end:'inf'}])).command,/force-keyframes|recode-video/);
+});
+test('legacy settings migrate without changing saved meaning',()=>{
+ const s=B.normalizeSettings({mode:'video',audioFormat:'mp3',min:'4',folder:'/my/path'},undefined);
+ assert.equal(s.mode,'av');assert.equal(s.audioFormat,undefined);assert.equal(s.min,'4');assert.equal(s.folder,'/my/path');
+ assert.equal(B.normalizeSettings({mode:'video'},2).mode,'video');
 });
 test('StillClip is video only first second; ignores editor',()=>{
  const c=B.build(input({mode:'still'},[{start:'bad',end:'bad'}])).command;

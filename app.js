@@ -12,14 +12,15 @@ function readState() {
     }
     // Preserve the browser prototype's existing preferences and history.
     return {settings:JSON.parse(localStorage.getItem('builder.settings') || '{}'),
-      links:'', cuts:[{start:'0',end:'1'}], history:JSON.parse(localStorage.getItem('builder.history') || '[]')};
+      links:'', cuts:[], history:JSON.parse(localStorage.getItem('builder.history') || '[]')};
   } catch (e) {
     storageError = 'Kayıtlı veriler okunamadı; mevcut kayıtların üzerine yazılmayacak. ' + e.message;
-    return {settings:{},links:'',cuts:[{start:'0',end:'1'}],history:[]};
+    return {settings:{},links:'',cuts:[],history:[]};
   }
 }
 state = readState();
-state.settings = {...Builder.defaults, ...state.settings};
+state.settings = Builder.normalizeSettings(state.settings,state.schema);
+state.schema=2;
 function persist() {
   if (storageError) throw Error(storageError);
   const raw = JSON.stringify(state);
@@ -34,10 +35,15 @@ function renderButtons() {
       b.classList.toggle('active',active); b.setAttribute('aria-pressed',String(active));
     }
   }
-  $('cutSection').hidden = state.settings.mode !== 'video';
+  $('cutSection').hidden = !['av','video'].includes(state.settings.mode);
+  $('modeHint').textContent={av:'En iyi görüntü + en iyi ses. Uyumlu kapsayıcıyı yt-dlp seçer.',video:'En iyi sessiz video akışı. Ses eklenmez.',audio:'En iyi ses akışı, kaynak biçimi korunarak çıkarılır.',still:'En iyi sessiz video akışından ilk 1 saniye.'}[state.settings.mode];
 }
 function renderCuts() {
   $('cuts').textContent='';
+  $('cutLabels').hidden=!state.cuts.length;
+  $('cutCount').textContent=state.cuts.length ? state.cuts.length+' kesit' : 'Tam video';
+  $('fullVideo').disabled=!state.cuts.length;
+  $('cutHint').textContent=state.cuts.length ? 'Saniye gir; sondan saymak için -3 / inf kullan. Kesitler ayrı dosyalardır. Yeniden kodlama zorlanmaz; başlangıç anahtar kareye kayabilir.' : 'Tam video seçili. İstersen birden fazla kesit ekleyebilirsin.';
   state.cuts.forEach((c,i) => {
     const row = document.createElement('div'); row.className='cut';
     for (const [key,label] of [['start','Başlangıç'],['end','Bitiş']]) {
@@ -51,20 +57,39 @@ function renderCuts() {
     row.append(del); $('cuts').append(row);
   });
 }
+function renderLinks(urls) {
+  $('count').textContent=urls.length+' bağlantı';
+  $('linkList').textContent='';
+  urls.forEach((url,i)=>{
+    const u=new URL(url), parts=u.pathname.split('/').filter(Boolean);
+    const row=document.createElement('div'); row.className='link-row';
+    const index=document.createElement('span');index.className='link-index';index.textContent=i+1;
+    const meta=document.createElement('div');meta.className='link-meta';
+    const title=document.createElement('strong');
+    title.textContent=parts[0]==='stories' ? '@'+parts[1]+' · Story' : (['reel','reels'].includes(parts[0]) ? 'Reels · '+parts[1] : u.hostname);
+    const link=document.createElement('small');link.textContent=url;link.title=url;
+    meta.append(title,link);
+    const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label','Bağlantı '+(i+1)+' sil');
+    remove.onclick=()=>{state.links=urls.filter((_,n)=>i!==n).join('\n');$('links').value=state.links;save();preview();};
+    row.append(index,meta,remove);$('linkList').append(row);
+  });
+}
 function preview() {
   try {
-    $('count').textContent=Builder.parseUrls(state.links).length+' bağlantı';
+    renderLinks(Builder.parseUrls(state.links));
     const result=Builder.build(state);
     $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=false;
+    $('commandCount').textContent=result.commandCount+' işlem';$('commandTitle').textContent='Komut hazır';
     return result;
   } catch(e) {
     $('error').textContent=e.message; $('output').textContent=''; $('copy').disabled=true;
+    $('commandCount').textContent='—';$('commandTitle').textContent='Komut';
     return null;
   }
 }
 function hydrate() {
   $('links').value=state.links;
-  for (const key of ['folder','cookies','requests','min','max','audioFormat','thumb','overwrite'])
+  for (const key of ['folder','cookies','requests','min','max','thumb','overwrite'])
     $(key)[['thumb','overwrite'].includes(key)?'checked':'value']=state.settings[key];
   renderButtons(); renderCuts(); preview();
 }
@@ -97,14 +122,17 @@ function showHistory() {
     const item=document.createElement('details'); item.className='history-item';
     const summary=document.createElement('summary');
     summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+' bağlantı | '+
-      ({video:'Video',audio:'Ses',still:'StillClip'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
+      ({av:'Video + Ses',video:h.snapshot && h.snapshot.schema===2 ? 'Sessiz Video' : 'Video + Ses',audio:'Ses',still:'StillClip'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
     item.append(summary);
     const pre=document.createElement('pre'); pre.textContent=historyText([h]); item.append(pre);
     const actions=document.createElement('div'); actions.className='group';
-    actions.append(button('Kopyala',()=>copyText(h.command)),button('TXT dışa aktar',()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
+    actions.append(button('Kopyala',()=>{
+      if (!h.snapshot) throw Error('Bu eski kaydı güncel kurallarla oluşturmak için bağlantılarını yeniden girin.');
+      return copyText(Builder.build({...h.snapshot,settings:Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema)}).command);
+    }),button('TXT dışa aktar',()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
       button('Tekrar düzenle',()=>{
         if (!h.snapshot) { alert('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.'); return; }
-        state.settings={...Builder.defaults,...h.snapshot.settings}; state.links=h.snapshot.links;
+        state.settings=Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema); state.schema=2; state.links=h.snapshot.links;
         state.cuts=JSON.parse(JSON.stringify(h.snapshot.cuts)); save(); hydrate(); $('dialog').close(); window.scrollTo(0,0);
       }), button('Sil',()=>{
         if (!confirm('Bu geçmiş kaydı silinsin mi?')) return;
@@ -114,13 +142,26 @@ function showHistory() {
     item.append(actions); $('history').append(item);
   });
 }
-for (const key of ['folder','cookies','requests','min','max','audioFormat','thumb','overwrite']) {
+for (const key of ['folder','cookies','requests','min','max','thumb','overwrite']) {
   $(key).oninput=()=>{ state.settings[key]=['thumb','overwrite'].includes(key)?$(key).checked:$(key).value; save(); preview(); };
 }
 for (const [id,key] of [['engines','engine'],['modes','mode']]) $(id).onclick=e=>{
   const b=e.target.closest('button[data-value]'); if (!b) return;
   state.settings[key]=b.dataset.value; save(); renderButtons(); preview();
 };
+$('addLink').onclick=()=>{
+  try {
+    const urls=Builder.parseUrls($('newLink').value);
+    if(!urls.length) throw Error('Eklemek için bir bağlantı girin.');
+    const before=Builder.parseUrls(state.links).length;
+    state.links=(state.links+'\n'+urls.join('\n')).trim();$('links').value=state.links;$('newLink').value='';
+    save();preview();
+    const added=Builder.parseUrls(state.links).length-before;
+    $('linkStatus').textContent=added ? added+' bağlantı eklendi.' : 'Bu bağlantı zaten listede.';
+  } catch(e) {$('linkStatus').textContent=e.message;}
+};
+$('newLink').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('addLink').click();}};
+$('fullVideo').onclick=()=>{state.cuts=[];renderCuts();save();preview();};
 $('links').oninput=()=>{state.links=$('links').value; save(); preview();};
 $('addCut').onclick=()=>{state.cuts.push({start:'0',end:'1'}); renderCuts(); save(); preview();};
 $('copy').onclick=async()=>{
@@ -131,7 +172,7 @@ $('copy').onclick=async()=>{
     if ((!state.history[0] || state.history[0].command!==result.command)) {
       const record={date:new Date().toISOString(),count:result.urls.length,urls:result.urls,
         engine:state.settings.engine,mode:state.settings.mode,command:result.command,
-        snapshot:JSON.parse(JSON.stringify({settings:state.settings,links:state.links,cuts:state.cuts}))};
+        snapshot:JSON.parse(JSON.stringify({schema:2,settings:state.settings,links:state.links,cuts:state.cuts}))};
       state.history.unshift(record);
       try { persist(); } catch(e) { state.history.shift(); throw Error('Komut kopyalandı, geçmiş kaydedilemedi: '+e.message); }
     }

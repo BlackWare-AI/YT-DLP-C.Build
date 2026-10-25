@@ -4,10 +4,16 @@
   else root.Builder = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const defaults = Object.freeze({engine:'experimental', mode:'video',
+  const defaults = Object.freeze({engine:'experimental', mode:'av',
     folder:'$HOME/storage/shared/Download/Apps/YT-DLPTemp',
     cookies:'$HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt',
-    requests:'2', min:'6', max:'16', audioFormat:'m4a', thumb:true, overwrite:true});
+    requests:'2', min:'6', max:'16', thumb:true, overwrite:true});
+  function normalizeSettings(settings, schema) {
+    const result = {...defaults, ...settings};
+    if (schema !== 2 && result.mode === 'video') result.mode = 'av';
+    delete result.audioFormat;
+    return result;
+  }
   const quote = value => "'" + String(value).replace(/'/g, "'\\''") + "'";
   function shellPath(value) {
     const s = String(value).trim();
@@ -60,21 +66,21 @@
     const u = new URL(url);
     const story = /^(?:www\.)?instagram\.com$/.test(u.hostname) && u.pathname.match(/^\/stories\/([\w.]+)/);
     const name = story ? story[1] : '%(channel,uploader,creator|unknown)s';
-    const type = settings.mode === 'audio' ? settings.audioFormat : settings.mode;
+    const type = settings.mode === 'audio' ? 'audio-best' : settings.mode;
     const suffix = cut ? '-cut' + (index+1) + '-' + cut.start + '-' + cut.end : '';
     // Stable fallbacks avoid NA and repeat-download names changing with current time.
     return name + '-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(id)s-' + type + suffix + '.%(ext)s';
   }
   function build(input) {
     const s = {...defaults, ...input.settings};
-    if (!['normal','experimental'].includes(s.engine) || !['video','audio','still'].includes(s.mode) ||
-        !['m4a','mp3'].includes(s.audioFormat)) throw Error('Geçersiz motor veya biçim.');
+    delete s.audioFormat;
+    if (!['normal','experimental'].includes(s.engine) || !['av','video','audio','still'].includes(s.mode)) throw Error('Geçersiz motor veya biçim.');
     const urls = parseUrls(input.links);
     if (!urls.length) throw Error('En az bir http/https içerik bağlantısı girin.');
     const min = numeric(s.min, 'Sleep min'), max = numeric(s.max, 'Sleep max'), req = numeric(s.requests, 'Sleep requests');
     if (max < min) throw Error('Sleep max, minimumdan küçük olamaz.');
     const folder = shellPath(s.folder), cookies = s.cookies.trim() ? shellPath(s.cookies) : null;
-    const cuts = s.mode === 'video' ? (input.cuts || []).map(validateCut) :
+    const cuts = ['av','video'].includes(s.mode) ? (input.cuts || []).map(validateCut) :
       s.mode === 'still' ? [{start:'0',end:'1'}] : [];
     const commands = [];
     for (const url of urls) {
@@ -84,17 +90,17 @@
         args.push('--sleep-requests ' + req, '--sleep-interval ' + min, '--max-sleep-interval ' + max,
           s.overwrite ? '--no-overwrites' : '--force-overwrites');
         if (s.mode === 'audio') {
-          args.push('-f ' + quote('ba/b'), '-x', '--audio-format ' + s.audioFormat);
+          args.push('-f ' + quote('ba/b'), '-x', '--audio-format best');
           if (s.thumb) args.push('--embed-thumbnail', '--convert-thumbnails jpg');
-        } else if (s.mode === 'still') args.push('-f ' + quote('bv'));
-        else args.push('-f ' + quote('bv*+ba/b'), '--merge-output-format mp4');
-        if (cut) args.push('--download-sections ' + quote('*' + cut.start + '-' + cut.end), '--force-keyframes-at-cuts');
+        } else if (s.mode === 'still' || s.mode === 'video') args.push('-f ' + quote('bv'));
+        else args.push('-f ' + quote('bv+ba/b'));
+        if (cut) args.push('--download-sections ' + quote('*' + cut.start + '-' + cut.end));
         args.push('-P ' + folder, '-o ' + quote(template(url,s,cut,index)), '--', quote(url));
         commands.push(args.join(' \\\n  '));
       }
     }
     return {command: '(\n' + commands.join(';\n\n') + '\n)', urls, settings:s,
-      cuts:s.mode === 'video' ? cuts : [], commandCount:commands.length};
+      cuts:['av','video'].includes(s.mode) ? cuts : [], commandCount:commands.length};
   }
-  return {defaults, quote, shellPath, parseUrls, validateCut, template, build};
+  return {defaults, normalizeSettings, quote, shellPath, parseUrls, validateCut, template, build};
 });

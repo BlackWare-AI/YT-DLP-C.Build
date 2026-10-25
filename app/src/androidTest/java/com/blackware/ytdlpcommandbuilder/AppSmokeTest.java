@@ -84,7 +84,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
         launch();
         try {
             await("typeof Builder==='object' && document.getElementById('copy')!==null");
-            js("document.getElementById('links').value='https://instagram.com/stories/user.name/123?utm_source=ahttps://instagram.com/reel/abc/';document.getElementById('links').dispatchEvent(new Event('input'));document.querySelector('#engines [data-value=normal]').click();document.getElementById('addCut').click();true");
+            js("document.getElementById('links').value='https://instagram.com/stories/user.name/123?utm_source=ahttps://instagram.com/reel/abc/';document.getElementById('links').dispatchEvent(new Event('input'));document.querySelector('#engines [data-value=normal]').click();document.getElementById('addCut').click();document.getElementById('addCut').click();true");
             await("document.getElementById('count').textContent==='2 bağlantı' && document.querySelectorAll('#cuts .cut').length===2 && !document.getElementById('copy').disabled");
             js("document.getElementById('copy').click();true");
             await("JSON.parse(Android.getState()).history.length===1");
