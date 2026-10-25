@@ -37,9 +37,9 @@ test('StillClip is video only first second; ignores editor',()=>{
  const c=B.build(input({mode:'still'},[{start:'bad',end:'bad'}])).command;
  assert.match(c,/-f "bv"/);assert.match(c,/--download-sections "\*0-1"/);assert.doesNotMatch(c,/bad/);
 });
-test('three sections are options of one process and use range-aware filenames',()=>{
+test('three sections are options of one process and use numbered filenames',()=>{
  const r=B.build(input({},[{start:'27',end:'45'},{start:'52',end:'Son'},{start:'75',end:'90'}]));
- assert.equal(r.commandCount,1);assert.equal((r.command.match(/--download-sections/g)||[]).length,3);assert.match(r.command,/%\(section_start\)s/);assert.match(r.command,/%\(section_end\|end\)s/);
+ assert.equal(r.commandCount,1);assert.equal((r.command.match(/--download-sections/g)||[]).length,3);assert.match(r.command,/%\(autonumber\)02d/);assert.doesNotMatch(r.command,/%\(id\)|-cut|%\(section_start\)/);
  assert.ok(r.command.indexOf('*27-45')<r.command.indexOf('*52-inf'));
 });
 test('negative start and inf',()=>assert.match(B.build(input({},[{start:'-3',end:'inf'}])).command,/\*-3-inf/));
@@ -116,4 +116,45 @@ test('double quote helper preserves all literal shell metacharacters',()=>{
  const literal='"single\' $HOME $(id) `id` \\ end';
  const script='python3 -c '+B.quote('import sys,json; print(json.dumps(sys.argv[1]))')+' '+B.quote(literal);
  assert.equal(JSON.parse(execFileSync('bash',['-c',script],{encoding:'utf8'})),literal);
+});
+
+test('collection links accept Story accounts, profile accounts and posts only',()=>{
+ for(const [url,kind] of [['https://instagram.com/stories/a.b','stories'],['https://instagram.com/a.b','profile'],['https://instagram.com/p/abc','post']]) {
+  const normalized=B.parseUrls(url)[0];assert.equal(B.collectionKind(normalized),kind);
+ }
+ for(const url of [story(1),'https://instagram.com/reel/abc','https://instagram.com/tv/abc']) assert.equal(B.collectionKind(B.parseUrls(url)[0]),null);
+ for(const name of ['settings','accounts','explore','direct','reels']) assert.throws(()=>B.parseUrls('https://instagram.com/'+name));
+});
+test('blank item selection never adds a playlist flag',()=>{
+ for(const links of ['https://instagram.com/stories/user','https://instagram.com/user','https://instagram.com/p/abc']) assert.doesNotMatch(B.build({links,selection:{only:'',after:'',before:''}}).command,/--playlist-items/);
+});
+test('item positions and exclusive before/after ranges',()=>{
+ for(const [selection,spec] of [[{only:'3'},'3'],[{after:'3'},'4:'],[{before:'3'},'1:2'],[{after:'3',before:'7'},'4:6'],[{after:'3',before:'5'},'4:4']]) assert.equal(B.selectionSpec(selection),spec);
+});
+test('item selection applies to all four modes and both engines',()=>{
+ for(const mode of ['av','video','audio','still']) for(const engine of ['normal','experimental']) {
+  const command=B.build({links:'https://instagram.com/stories/user https://instagram.com/p/abc '+story(1),settings:{mode,engine},selection:{only:'3'}}).command;
+  assert.match(command,/--playlist-items "3"/);assert.match(command,/--no-playlist/);assert.doesNotMatch(command,/--yes-playlist/);
+  assert.equal((command.match(/--playlist-items/g)||[]).length,1);
+ }
+});
+test('item selection stays inactive on direct Story/Reels/TV URLs',()=>{
+ for(const links of [story(1),'https://instagram.com/reel/abc','https://instagram.com/tv/abc']) assert.doesNotMatch(B.build({links,selection:{only:'3'}}).command,/--playlist-items/);
+});
+test('invalid or contradictory item positions fail closed',()=>{
+ for(const selection of [{only:'0'},{only:'-1'},{only:'1.5'},{only:'1;id'},{only:'9007199254740991'},{only:'2',after:'3'},{before:'1'},{after:'3',before:'4'},{after:'6',before:'2'}]) assert.throws(()=>B.build({links:'https://instagram.com/p/abc',selection}));
+});
+
+test('all modes use the requested username-date-time-counter filename',()=>{
+ const expected='%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(autonumber)02d.%(ext)s';
+ for(const mode of ['av','video','audio','still']) {
+  const result=B.build(input({mode},[{start:'0',end:'1'},{start:'2',end:'3'}]));
+  assert.ok(result.command.includes('-o '+B.quote(expected)));
+  assert.doesNotMatch(expected,/%\(id\)|-video|-av|-audio|-still|-cut/);
+ }
+});
+test('deleting a link preserves unrelated unfinished text and other links',()=>{
+ const raw='yarım not https://instagram.com/reel/abc?igsh=x https://instagram.com/stories/a/1 https://instag';
+ const removed=B.removeUrl(raw,'https://www.instagram.com/reel/abc');
+ assert.match(removed,/yarım not/);assert.match(removed,/stories\/a\/1/);assert.match(removed,/https:\/\/instag$/);assert.doesNotMatch(removed,/reel\/abc/);
 });
