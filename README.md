@@ -111,7 +111,7 @@ gradle :app:connectedDebugAndroidTest
 
 CI tests Android 10/15 native clipboard append/copy, draft persistence, successful-copy clearing, history and TXT export. Separate instrumentation processes verify saved-draft recovery across `am force-stop`. Web tests cover failed clipboard/storage writes, duplicate handling, history and responsive layouts; shell tests verify argument preservation with Bash and sh. Local synthetic yt-dlp/FFmpeg fixtures verify multi-URL/multi-cut outputs, metadata fallbacks, codecs and thumbnails without accessing Instagram. Physical-device keyboard/gesture/file-picker checks and a real phone reboot remain manual checks.
 
-Release builds require signing credentials stored in GitHub Actions secrets. Refer to the workflows for build and publishing details.
+Release builds require signing credentials stored in GitHub Actions secrets. Updating `.github/release-version` on main requests a signed release; the marker must match Android `versionName`. Manual workflow dispatch remains available. Release tags target the exact workflow commit; signing keys never enter source control. Refer to the workflows for build and publishing details.
 
 ## Contributing
 
