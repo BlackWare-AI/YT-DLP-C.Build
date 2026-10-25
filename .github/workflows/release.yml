@@ -44,4 +44,3 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create v1.0.0 YT-DLP-Command-Builder-v1.0.0.apk --title "YT-DLP Command Builder v1.0.0" --notes "Signed release APK; R8 minify and resource shrink enabled." --latest
-

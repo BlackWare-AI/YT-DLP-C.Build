@@ -57,7 +57,7 @@ gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
 
 Web dosyaları tek kaynaktır; Gradle tarafından üretilen assets klasörüne kopyalanır. Çıktı `app/build/outputs/apk/debug/app-debug.apk`.
 
-`.github/workflows/android.yml` özellik dallarında, PR'larda ve main üzerinde çalışır. Motor/shell testleri, APK ve lint, Chromium UI testleri, yerel medya üzerinde gerçek yt-dlp/ffmpeg testleri ve Android 10/15 emülatör smoke testleri içerir. APK artifact adı **YT-DLP-Command-Builder-1.0.0-debug**; içindeki dosya **YT-DLP-Command-Builder-1.0.0-debug.apk**. GitHub Actions debug anahtarları geçicidir; farklı çalıştırmaların APK'leri birbirinin üzerine güncellenemeyebilir. Kalıcı güncellemeler için Release anahtarını kullanın.
+`.github/workflows/android.yml` PR'larda, main üzerinde ve elle başlatıldığında çalışır. Motor/shell testleri, APK ve lint, Chromium UI testleri, yerel medya üzerinde gerçek yt-dlp/ffmpeg testleri ve Android 10/15 emülatör smoke testleri içerir. APK artifact adı **YT-DLP-Command-Builder-1.0.0-debug**; içindeki dosya **YT-DLP-Command-Builder-1.0.0-debug.apk**. GitHub Actions debug anahtarları geçicidir; farklı çalıştırmaların APK'leri birbirinin üzerine güncellenemeyebilir. Kalıcı güncellemeler için Release anahtarını kullanın.
 
 ```sh
 # Yalnızca geliştirme/test ortamı için:
@@ -73,7 +73,7 @@ gradle :app:connectedDebugAndroidTest
 `tests/engine.test.cjs`: URL, motor, format, kesit, yollar, sayılar, gerçek bash/sh sözdizimi ve argv kaçış testleri.
 `tests/media_integration.py`: sentetik extractor metadata'sı + yerel HTTP medyası ile gerçek yt-dlp/ffmpeg; ayrı kesitler ve süreler, mevcut dosya koruma, M4A/MP3 kapak, sessiz StillClip ve eksik metadata fallback'i.
 `tests/ui.cjs`: arayüz, seçimler, kesit ekle/sil, kalıcılık, pano, geçmiş, TXT, silme onayı, bozuk kayıt koruma ve ekran genişlikleri.
-`AppSmokeTest.java`: Android'de çevrimdışı açılış, paketlenmiş JS, seçimler, yerel pano/geçmiş, tekrar açma ve uygulama içi geri davranışı. Fiziksel telefondaki klavye, sistem geri hareketi ve Belge Oluştur sağlayıcısının elle doğrulanması ayrıca gerekir.
+`AppSmokeTest.java`: Android'de çevrimdışı açılış, paketlenmiş JS, seçimler, yerel pano içeriği/geçmiş, sistem Belge Oluştur sonucuyla gerçek TXT yazımı, tekrar açma ve uygulama içi geri davranışı. TXT testinde hedef URI otomatik sağlanır; seçicinin görsel etkileşimi test edilmez. Fiziksel telefondaki klavye, sistem geri hareketi ve Belge Oluştur sağlayıcısının elle doğrulanması ayrıca gerekir.
 
 ## İmzalı Release
 

@@ -1,7 +1,7 @@
 name: Android APK
 on:
   push:
-    branches: [main, 'feature/**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -69,7 +69,9 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --no-daemon
+          script: |
+            gradle :app:connectedDebugAndroidTest --no-daemon
+            adb exec-out run-as com.blackware.ytdlpcommandbuilder cat files/android-phone.png > android-phone-${{ matrix.api }}.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -77,6 +79,7 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            android-phone-*.png
   web-and-media:
     runs-on: ubuntu-latest
     steps:

@@ -2,6 +2,17 @@ package com.blackware.ytdlpcommandbuilder;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipboardManager;
+import android.content.ContentValues;
+import android.content.IntentFilter;
+import android.app.Instrumentation;
+import android.net.Uri;
+import android.provider.MediaStore;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import android.graphics.Bitmap;
 import android.os.SystemClock;
 import android.test.InstrumentationTestCase;
 import android.webkit.WebView;
@@ -38,6 +49,36 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             web=(WebView)((ViewGroup)content.getChildAt(0)).getChildAt(0);
         });
     }
+    private void verifyTextExport() throws Exception {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Downloads.DISPLAY_NAME, "builder-smoke-"+System.nanoTime()+".txt");
+        values.put(MediaStore.Downloads.MIME_TYPE, "text/plain");
+        Uri destination = getInstrumentation().getTargetContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);
+        assertNotNull(destination);
+        IntentFilter filter = new IntentFilter(Intent.ACTION_CREATE_DOCUMENT);
+        filter.addCategory(Intent.CATEGORY_OPENABLE); filter.addDataType("text/plain");
+        Instrumentation.ActivityMonitor monitor = getInstrumentation().addMonitor(filter,
+            new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(destination)),true);
+        try {
+            js("document.getElementById('export').click();true");
+            long deadline=SystemClock.uptimeMillis()+10000; String text="";
+            do {
+                try (InputStream in=getInstrumentation().getTargetContext().getContentResolver().openInputStream(destination);
+                     ByteArrayOutputStream bytes=new ByteArrayOutputStream()) {
+                    byte[] buffer=new byte[8192]; int length;
+                    while ((length=in.read(buffer))!=-1) bytes.write(buffer,0,length);
+                    text=bytes.toString("UTF-8");
+                }
+                if (text.contains("--download-sections")) break;
+                SystemClock.sleep(100);
+            } while (SystemClock.uptimeMillis()<deadline);
+            assertTrue("System create-document intent was requested",monitor.getHits()>0);
+            assertTrue("Native TXT output must contain complete commands",text.contains("--download-sections") && text.contains("user.name"));
+        } finally {
+            getInstrumentation().removeMonitor(monitor);
+            getInstrumentation().getTargetContext().getContentResolver().delete(destination,null,null);
+        }
+    }
     public void testOfflineLaunchCommandsPersistenceAndHistory() throws Exception {
         getInstrumentation().getTargetContext().getSharedPreferences("builder",0).edit().clear().commit();
         launch();
@@ -47,10 +88,17 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             await("document.getElementById('count').textContent==='2 bağlantı' && document.querySelectorAll('#cuts .cut').length===2 && !document.getElementById('copy').disabled");
             js("document.getElementById('copy').click();true");
             await("JSON.parse(Android.getState()).history.length===1");
+            AtomicReference<String> clipboard = new AtomicReference<>();
+            getInstrumentation().runOnMainSync(() -> {
+                ClipboardManager cm = (ClipboardManager) activity.getSystemService(Activity.CLIPBOARD_SERVICE);
+                clipboard.set(cm.getPrimaryClip().getItemAt(0).getText().toString());
+            });
+            assertTrue("Native clipboard must contain complete commands", clipboard.get().contains("--download-sections") && clipboard.get().contains("user.name"));
             js("document.getElementById('copy').click();true");
             await("JSON.parse(Android.getState()).history.length===1");
             js("document.getElementById('historyBtn').click();true");
             await("document.getElementById('dialog').open && document.querySelectorAll('.history-item').length===1");
+            verifyTextExport();
             assertEquals("true",js("window.handleBack()"));
             assertEquals("false",js("document.getElementById('dialog').open"));
             getInstrumentation().runOnMainSync(() -> activity.finish());
@@ -58,6 +106,13 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             launch();
             await("typeof Builder==='object' && document.getElementById('count').textContent==='2 bağlantı'");
             assertEquals("true",js("document.querySelector('#engines [data-value=normal]').getAttribute('aria-pressed')==='true' && document.querySelectorAll('#cuts .cut').length===2 && JSON.parse(Android.getState()).history.length===1"));
+            Bitmap screenshot=getInstrumentation().getUiAutomation().takeScreenshot();
+            if (screenshot!=null) {
+                try (FileOutputStream out=new FileOutputStream(new File(getInstrumentation().getTargetContext().getFilesDir(),"android-phone.png"))) {
+                    screenshot.compress(Bitmap.CompressFormat.PNG,100,out);
+                }
+                screenshot.recycle();
+            }
         } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
     }
 }
