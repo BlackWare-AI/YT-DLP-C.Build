@@ -213,7 +213,6 @@ $('clear').onclick=()=>{
 };
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 window.handleBack=()=>{if ($('dialog').open) { $('dialog').close(); return true; } return false;};
-document.addEventListener('visibilitychange',()=>{if(document.hidden) save();});
-window.addEventListener('pagehide',save);
+// Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=storageError;
