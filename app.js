@@ -264,7 +264,7 @@ $('notes').addEventListener('blur',cleanNoteUrls);
 function insertNoteText(text) {
   const editor=$('notes');
   editor.setRangeText(Builder.cleanNotes(text),editor.selectionStart,editor.selectionEnd,'end');
-  saveNotes();editor.focus();
+  saveNotes();
 }
 $('notes').addEventListener('paste',e=>{
   if(!e.clipboardData) return;
@@ -306,11 +306,12 @@ $('notes').addEventListener('pointerup',e=>{
     saveNotes();
   }
 });
+let notesScrollY=0;
 function closeNotes() {
   if(!save()) {$('notesStatus').textContent=$('status').textContent;return;}
-  $('notesDialog').close();$('notesBtn').focus();
+  $('notesDialog').close();document.documentElement.classList.remove('notes-open');$('notesBtn').focus();window.scrollTo(0,notesScrollY);
 }
-$('notesBtn').onclick=()=>{$('notesDialog').showModal();cleanNoteUrls();$('notes').focus();};
+$('notesBtn').onclick=()=>{notesScrollY=window.scrollY;document.documentElement.classList.add('notes-open');$('notesDialog').showModal();cleanNoteUrls();};
 $('notesClose').onclick=closeNotes;
 $('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();});
 window.handleBack=()=>{
