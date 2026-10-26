@@ -9,6 +9,7 @@ on:
       - 'app.js'
       - 'engine.js'
       - 'styles.css'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 permissions:
   contents: write
