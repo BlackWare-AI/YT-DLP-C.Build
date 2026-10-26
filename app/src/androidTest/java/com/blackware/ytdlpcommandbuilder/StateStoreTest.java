@@ -38,11 +38,28 @@ public final class StateStoreTest extends InstrumentationTestCase {
             output.write("broken".getBytes(StandardCharsets.UTF_8)); output.getFD().sync();
         }
     }
+    private void awaitBackup(String expected) throws Exception {
+        File target=new File(directory,"builder-state-backup.json"); long end=System.currentTimeMillis()+3000;
+        while(System.currentTimeMillis()<end) {
+            if(target.isFile()) try {
+                JSONObject envelope=new JSONObject(new String(java.nio.file.Files.readAllBytes(target.toPath()),StandardCharsets.UTF_8));
+                if(expected.equals(envelope.getString("payload"))) return;
+            } catch(Exception ignored) { }
+            Thread.sleep(10);
+        }
+        fail("Timed out waiting for redundant snapshot");
+    }
+    private void awaitMirror(String expected) throws Exception {
+        long end=System.currentTimeMillis()+3000;
+        while(!expected.equals(preferences.getString("state","")) && System.currentTimeMillis()<end) Thread.sleep(10);
+        assertEquals(expected,preferences.getString("state",""));
+    }
     public void testLegacyMigrationAndRedundantCopies() throws Exception {
         String old=payload("legacy notes");
         preferences.edit().putString("state",old).commit();
         assertEquals(old,store.read());
         assertTrue(store.save(old));
+        awaitBackup(old);
         assertTrue(new File(directory,"builder-state.json").isFile());
         assertTrue(new File(directory,"builder-state-backup.json").isFile());
         corrupt("builder-state.json"); assertEquals(old,store.read());
@@ -50,6 +67,7 @@ public final class StateStoreTest extends InstrumentationTestCase {
     public void testNewestBackupWinsOverStaleMirror() throws Exception {
         String old=payload("old"), current=payload("newest");
         assertTrue(store.save(old)); assertTrue(store.save(current));
+        awaitBackup(current);
         corrupt("builder-state.json");
         preferences.edit().putString("state",old).putLong("state_revision",0).commit();
         assertEquals(current,store.read());
@@ -62,11 +80,13 @@ public final class StateStoreTest extends InstrumentationTestCase {
     }
     public void testPreferencesMirrorRecoversBothDamagedFiles() throws Exception {
         String current=payload("mirror notes"); assertTrue(store.save(current));
+        awaitBackup(current); awaitMirror(current);
         corrupt("builder-state.json"); corrupt("builder-state-backup.json");
         assertEquals(current,store.read());
     }
     public void testAllDamagedCopiesFailClosed() throws Exception {
         assertTrue(store.save(payload("preserve damaged records")));
+        awaitBackup(payload("preserve damaged records")); awaitMirror(payload("preserve damaged records"));
         corrupt("builder-state.json"); corrupt("builder-state-backup.json");
         preferences.edit().putString("state","broken").commit();
         assertEquals("unreadable persistent state",store.read());
@@ -76,7 +96,7 @@ public final class StateStoreTest extends InstrumentationTestCase {
     public void testIntentionalClearingDoesNotResurrectOldDraft() throws Exception {
         assertTrue(store.save(payload("notes stay")));
         JSONObject cleared=new JSONObject(payload("notes stay")).put("links","").put("cuts",new JSONArray());
-        assertTrue(store.save(cleared.toString())); corrupt("builder-state.json");
+        assertTrue(store.save(cleared.toString())); awaitBackup(cleared.toString()); corrupt("builder-state.json");
         JSONObject recovered=new JSONObject(store.read());
         assertEquals("",recovered.getString("links")); assertEquals(0,recovered.getJSONArray("cuts").length());
         assertEquals("notes stay",recovered.getString("notes")); assertEquals(1,recovered.getJSONArray("history").length());

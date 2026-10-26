@@ -1,8 +1,8 @@
-Link Notes editing improvements:
+Link Notes typing performance improvements:
 
-- Tap a blank line to place the cursor without repeatedly pressing Enter.
-- Paste at the current cursor or selection using the in-editor clipboard button.
-- Automatically remove Instagram sharing parameters while preserving format notes, custom text and line breaks.
-- Existing notes are cleaned when opened. Notes remain saved on every edit.
+- Keep every edit durably written to the verified primary snapshot immediately.
+- Coalesce redundant recovery snapshot and legacy preference mirror writes on a background thread, reducing synchronous storage work while typing.
+- Optimize snapshot checksums for large histories.
+- Preserve notes, settings, links, history, cuts and selection on relaunch.
 
-Android 10 or newer. This app only generates commands; it does not download or query Instagram content. Signed with the same release identity as v1.0.5.
+Android 10 or newer. This app only generates commands. It does not download or query Instagram content. Signed with the existing release identity.
