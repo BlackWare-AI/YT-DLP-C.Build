@@ -2,7 +2,9 @@ name: Release APK
 on:
   push:
     branches: [main]
-    paths: ['.github/release-version']
+    paths:
+      - '.github/release-version'
+      - 'app/src/main/res/**'
   workflow_dispatch:
 permissions:
   contents: write
@@ -98,4 +100,8 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${RELEASE_VERSION}" "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk" --target "$GITHUB_SHA" --title "YT-DLP Command Builder v${RELEASE_VERSION}" --notes-file .github/release-notes.md --latest
+          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${RELEASE_VERSION}" "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk" --clobber
+          else
+            gh release create "v${RELEASE_VERSION}" "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk" --target "$GITHUB_SHA" --title "YT-DLP Command Builder v${RELEASE_VERSION}" --notes-file .github/release-notes.md --latest
+          fi
