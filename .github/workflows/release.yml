@@ -5,6 +5,10 @@ on:
     paths:
       - '.github/release-version'
       - 'app/src/main/res/**'
+      - 'index.html'
+      - 'app.js'
+      - 'engine.js'
+      - 'styles.css'
   workflow_dispatch:
 permissions:
   contents: write
