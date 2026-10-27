@@ -147,6 +147,17 @@ function button(label, action) {
   b.onclick=async()=>{ try { await action(); } catch(e) { $('status').textContent=e.message; alert(e.message); } };
   return b;
 }
+function askConfirm(message,{title='Silme işlemi',accept='Sil'}={}) {
+  const dialog=$('confirmDialog');
+  $('confirmTitle').textContent=title;$('confirmMessage').textContent=message;$('confirmAccept').textContent=accept;
+  return new Promise(resolve=>{
+    let settled=false;
+    const finish=value=>{if(settled)return;settled=true;dialog.close();resolve(value);};
+    $('confirmCancel').onclick=()=>finish(false);$('confirmAccept').onclick=()=>finish(true);
+    dialog.addEventListener('close',()=>{if(!settled){settled=true;resolve(false);}},{once:true});
+    dialog.showModal();$('confirmCancel').focus();
+  });
+}
 function showHistory() {
   $('history').textContent=''; let day='';
   if (!state.history.length) $('history').textContent='Henüz kayıt yok.';
@@ -168,8 +179,8 @@ function showHistory() {
         if (!h.snapshot) { alert('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.'); return; }
         state.settings=Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema); state.schema=2; state.links=h.snapshot.links;
         state.cuts=JSON.parse(JSON.stringify(h.snapshot.cuts)); state.selection={only:'',after:'',before:'',...h.snapshot.selection}; save(); hydrate(); $('dialog').close(); window.scrollTo(0,0);
-      }), button('Sil',()=>{
-        if (!confirm('Bu geçmiş kaydı silinsin mi?')) return;
+      }), button('Sil',async()=>{
+        if (!await askConfirm('Bu işlem geçmişi kaydı silinsin mi?',{title:'Kaydı sil'})) return;
         const old=state.history; state.history=old.filter((_,n)=>n!==i);
         try { persist(); } catch(e) { state.history=old; throw e; } showHistory();
       }));
@@ -277,9 +288,11 @@ $('historyTab').onclick=()=>showHistoryPanel('commands');
 $('notesLogTab').onclick=()=>showHistoryPanel('notes');
 $('close').onclick=()=>$('dialog').close();
 $('clear').onclick=()=>{
-  if (!confirm('Tüm işlem geçmişi kalıcı olarak silinsin mi?')) return;
+  askConfirm('Tüm işlem geçmişi kalıcı olarak silinsin mi?',{title:'İşlem geçmişini temizle',accept:'Tümünü sil'}).then(confirmed=>{
+  if (!confirmed) return;
   const old=state.history; state.history=[];
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(e.message); }
+  });
 };
 $('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.8',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
@@ -318,9 +331,9 @@ $('notesPaste').onclick=async()=>{
     insertNoteText(text);
   } catch(e) {$('notesStatus').textContent=e.message || 'Pano okunamadı.';}
 };
-$('notesClear').onclick=()=>{
+$('notesClear').onclick=async()=>{
   if(!$('notes').value) return;
-  if(!confirm('Link Notları içeriği silinsin mi? Günlük kayıtlar ve işlem geçmişi korunur.')) return;
+  if(!await askConfirm('Link Notları tamamen silinsin mi? Not Günlüğü ve işlem geçmişi korunur.',{title:'Link Notlarını temizle',accept:'Notları sil'})) return;
   const old=state.notes;state.notes='';$('notes').value='';
   if(!save()) {state.notes=old;$('notes').value=old;renderNotesCount();$('notesStatus').textContent=$('status').textContent;return;}
   renderNotesCount();
