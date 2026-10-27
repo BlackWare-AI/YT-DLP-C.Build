@@ -66,7 +66,9 @@
     return String(text).replace(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"'])+/gi, (token,offset,source) => {
       if(!/^https?:\/\/(?:www\.)?instagram\.com(?=\/|$)/i.test(token)) return token;
       const clean=token.replace(/[?#].*$/, '').replace(/\/+$/, '');
-      const path=clean.replace(/^https?:\/\/(?:www\.)?instagram\.com\/?/i, '').replace(/^\/+/, '');
+      let path=clean.replace(/^https?:\/\/(?:www\.)?instagram\.com\/?/i, '').replace(/^\/+/, '');
+      // Profile URLs stand for a Story account in this app's command workflow.
+      if (path && !/^(?:stories|reel|p|tv)\//i.test(path)) path='stories/'+path;
       return path+(/^https?:\/\//i.test(source.slice(offset+token.length))?'\n':'');
     });
   }

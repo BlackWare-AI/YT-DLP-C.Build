@@ -167,7 +167,7 @@ test('deleting a link preserves unrelated unfinished text and other links',()=>{
 });
 test('note cleaning removes only Instagram sharing suffixes and preserves format annotations',()=>{
   const raw='https://www.instagram.com/hilaalats?psln=MWFjOWFsejNnZjFqcw== V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nhttps://www.instagram.com/stories/didemsoydan/4015809594487502072?utm_source=ig_story_item_share&dlrf=ZHhoMWZ0OG9iMzgz V\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663?utm_source=ig_story_item_share&rpxt=dXNzdDMybHdhcnBr V1sec';
-  assert.equal(B.cleanNotes(raw),'hilaalats V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nstories/didemsoydan/4015809594487502072 V\nstories/mashadiduk/4015971660985413663 V1sec');
+  assert.equal(B.cleanNotes(raw),'stories/hilaalats V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nstories/didemsoydan/4015809594487502072 V\nstories/mashadiduk/4015971660985413663 V1sec');
   assert.equal(B.cleanNotes('Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/#shared S'), 'Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nreel/ABC S');
   assert.equal(B.cleanNotes('  https://instagram.com/p/ABC?igsh=x\tV+S\n'), '  p/ABC\tV+S\n');
   assert.equal(B.cleanNotes('stories/a/1 V1s reel/Bc_2 V'), 'stories/a/1 V1s\nreel/Bc_2 V');
