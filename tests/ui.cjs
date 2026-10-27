@@ -38,13 +38,13 @@ const root=path.resolve(__dirname,'..');
   await page.evaluate(()=>navigator.clipboard.writeText('https://www.instagram.com/hilaalats?psln=abc== V4S'));
   await page.click('#notesPaste');
   await page.waitForFunction(()=>document.getElementById('notes').value.endsWith('/hilaalats V4S'));
-  assert.equal(await page.inputValue('#notes'),'Önceki not V4S\n\n\n\nhttps://www.instagram.com/hilaalats V4S');
+  assert.equal(await page.inputValue('#notes'),'Önceki not V4S\n\n\n\nstories/hilaalats V4S');
   // Paste into an existing line, replacing only the selected text.
   await page.locator('#notes').evaluate(el=>{el.focus();el.setSelectionRange(0,6);});
   await page.evaluate(()=>navigator.clipboard.writeText('Yeni'));
   await page.click('#notesPaste');
   await page.waitForFunction(()=>document.getElementById('notes').value.startsWith('Yeni not'));
-  assert.equal(await page.inputValue('#notes'),'Yeni not V4S\n\n\n\nhttps://www.instagram.com/hilaalats V4S');
+  assert.equal(await page.inputValue('#notes'),'Yeni not V4S\n\n\n\nstories/hilaalats V4S');
   // Standard Android/browser paste follows the same path and preserves annotations.
   await page.locator('#notes').evaluate(el=>{
     el.setSelectionRange(el.value.length,el.value.length);
@@ -58,7 +58,7 @@ const root=path.resolve(__dirname,'..');
   // Existing notes and manually entered URLs are cleaned on blur, keeping all other text.
   await page.fill('#notes','https://instagram.com/stories/didemsoydan/4015809594487502072?dlrf=abc V\nÖzel not ?silinmesin');
   await page.click('#notesClose');await page.click('#notesBtn');
-  assert.equal(await page.inputValue('#notes'),'https://instagram.com/stories/didemsoydan/4015809594487502072 V\nÖzel not ?silinmesin');
+  assert.equal(await page.inputValue('#notes'),'stories/didemsoydan/4015809594487502072 V\nÖzel not ?silinmesin');
   await page.click('#notesClose');
   console.log('PASS: blank-line positioning, selection paste, standard paste, Instagram cleanup, format notes and persistence');
   const note='https://instagram.com/stories/notes.user/\nV+S: 3 sonrası; SClip: ilk saniye\nÖzel istek: kapak, sonra dinle <script>literal</script>';
@@ -171,7 +171,7 @@ const root=path.resolve(__dirname,'..');
   await page.click('#notesBtn');
   await page.fill('#notes','hilaalats V4S\nhttps://instagram.com/stories/mashadiduk/4015971660985413663?utm_source=share V1s');
   await page.click('#notesClose');
-  assert.equal(await page.inputValue('#notes'),'https://www.instagram.com/stories/hilaalats V4S\nhttps://instagram.com/stories/mashadiduk/4015971660985413663 V1s');
+  assert.equal(await page.inputValue('#notes'),'stories/hilaalats V4S\nstories/mashadiduk/4015971660985413663 V1s');
   assert.equal(await page.textContent('#notesCount'),'2 bağlantı');
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,27,10))),true);
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,27,10))),false);
