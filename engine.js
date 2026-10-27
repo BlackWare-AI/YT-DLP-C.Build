@@ -62,10 +62,11 @@
       return match[1] + 'https://www.instagram.com/stories/' + match[2] + suffix;
     });
   }
-  function cleanNotes(text) {
-    return normalizeBareUsernames(String(text).replace(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi,
-      token => token.replace(/[?#].*$/, '')));
+  function cleanNoteUrls(text) {
+    return String(text).replace(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi,
+      token => token.replace(/[?#].*$/, ''));
   }
+  function cleanNotes(text) { return normalizeBareUsernames(cleanNoteUrls(text)); }
   function parseUrls(text, skipInvalid) {
     const urls = [];
     const source = normalizeBareUsernames(String(text)).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
@@ -154,5 +155,5 @@
     return {command:args.join(' \\\n  '), urls, settings:s,
       cuts:['av','video'].includes(s.mode) ? cuts : [], selection:input.selection || {}, commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, normalizeBareUsernames, cleanNotes, countNoteLinks, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
+  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, normalizeBareUsernames, cleanNoteUrls, cleanNotes, countNoteLinks, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
 });

@@ -290,10 +290,10 @@ function saveNotes() {
 }
 function cleanNoteUrls() {
   const editor=$('notes'), raw=editor.value, cleaned=Builder.cleanNotes(raw);
-  if(raw===cleaned) return;
+  if(raw===cleaned) return false;
   const start=Builder.cleanNotes(raw.slice(0,editor.selectionStart)).length;
   const end=Builder.cleanNotes(raw.slice(0,editor.selectionEnd)).length;
-  editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();
+  editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();return true;
 }
 $('notes').oninput=e=>{
   if(e.inputType==='insertFromPaste') cleanNoteUrls();
@@ -302,8 +302,8 @@ $('notes').oninput=e=>{
 $('notes').addEventListener('blur',cleanNoteUrls);
 function insertNoteText(text) {
   const editor=$('notes');
-  editor.setRangeText(Builder.cleanNotes(text),editor.selectionStart,editor.selectionEnd,'end');
-  saveNotes();
+  editor.setRangeText(Builder.cleanNoteUrls(text),editor.selectionStart,editor.selectionEnd,'end');
+  if(!cleanNoteUrls()) saveNotes();
 }
 $('notes').addEventListener('paste',e=>{
   if(!e.clipboardData) return;
