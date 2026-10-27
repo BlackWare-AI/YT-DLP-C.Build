@@ -9,6 +9,13 @@ test('five different Stories',()=>assert.equal(B.parseUrls([1,2,3,4,5].map(story
 test('glued URLs split before next scheme',()=>assert.equal(B.parseUrls(story(1)+story(2)+story(3)).length,3));
 test('deduplicate canonical URLs',()=>assert.equal(B.parseUrls(story(1)+' '+story(1).replace('?utm_source=abc','/')).length,1));
 test('Reels and posts',()=>assert.equal(B.parseUrls('https://instagram.com/reel/De5cfG-vaDc/?igsh=a https://www.instagram.com/p/abc/').length,2));
+test('short Instagram routes become full command URLs',()=>{
+ assert.deepEqual(B.parseUrls('stories/victoria.tsuranova/4017147113884118209\nreel/DfAEcuvKjin'),[
+  'https://www.instagram.com/stories/victoria.tsuranova/4017147113884118209',
+  'https://www.instagram.com/reel/DfAEcuvKjin'
+ ]);
+ assert.ok(B.build({...input(),links:'stories/victoria.tsuranova/4017147113884118209'}).command.includes('"https://www.instagram.com/stories/victoria.tsuranova/4017147113884118209"'));
+});
 test('non Instagram URLs rejected',()=>assert.throws(()=>B.parseUrls('https://www.youtube.com/watch?v=abc')));
 test('manual normal/experimental engines',()=>{assert.match(B.build(input({engine:'normal'})).command,/\n?yt-dlp/);assert.match(B.build(input()).command,/"\$HOME\/yt-dlp-story-test/);});
 test('video plus audio selects best independent streams with automatic merge container',()=>{
@@ -160,16 +167,18 @@ test('deleting a link preserves unrelated unfinished text and other links',()=>{
 });
 test('note cleaning removes only Instagram sharing suffixes and preserves format annotations',()=>{
   const raw='https://www.instagram.com/hilaalats?psln=MWFjOWFsejNnZjFqcw== V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nhttps://www.instagram.com/stories/didemsoydan/4015809594487502072?utm_source=ig_story_item_share&dlrf=ZHhoMWZ0OG9iMzgz V\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663?utm_source=ig_story_item_share&rpxt=dXNzdDMybHdhcnBr V1sec';
-  assert.equal(B.cleanNotes(raw),'https://www.instagram.com/hilaalats V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nhttps://www.instagram.com/stories/didemsoydan/4015809594487502072 V\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663 V1sec');
-  assert.equal(B.cleanNotes('Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/#shared S'), 'Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/ S');
-  assert.equal(B.cleanNotes('  https://instagram.com/p/ABC?igsh=x\tV+S\n'), '  https://instagram.com/p/ABC\tV+S\n');
+  assert.equal(B.cleanNotes(raw),'hilaalats V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nstories/didemsoydan/4015809594487502072 V\nstories/mashadiduk/4015971660985413663 V1sec');
+  assert.equal(B.cleanNotes('Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/#shared S'), 'Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nreel/ABC S');
+  assert.equal(B.cleanNotes('  https://instagram.com/p/ABC?igsh=x\tV+S\n'), '  p/ABC\tV+S\n');
+  assert.equal(B.cleanNotes('stories/a/1 V1s reel/Bc_2 V'), 'stories/a/1 V1s\nreel/Bc_2 V');
+  assert.equal(B.cleanNotes('https://instagram.com/reel/ABC/https://instagram.com/stories/a/1 V'), 'reel/ABC\nstories/a/1 V');
 });
 test('standalone Instagram usernames become Story account URLs in main links and notes',()=>{
  assert.deepEqual(B.parseUrls('hilaalats\n@elisha__h'),[
   'https://www.instagram.com/stories/hilaalats','https://www.instagram.com/stories/elisha__h'
  ]);
  assert.equal(B.cleanNotes('hilaalats V4S\nV1s\n@elisha__h S'),
-  'https://www.instagram.com/stories/hilaalats V4S\nV1s\nhttps://www.instagram.com/stories/elisha__h S');
+  'stories/hilaalats V4S\nV1s\nstories/elisha__h S');
  assert.deepEqual(B.parseUrls('V1s'),[]);
 });
 test('note link counter counts note entries and ignores non-Instagram text',()=>{

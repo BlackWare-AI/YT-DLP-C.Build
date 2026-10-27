@@ -62,14 +62,31 @@
       return match[1] + 'https://www.instagram.com/stories/' + match[2] + suffix;
     });
   }
-  function cleanNoteUrls(text) {
-    return String(text).replace(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi,
-      token => token.replace(/[?#].*$/, ''));
+  function compactInstagramUrls(text) {
+    return String(text).replace(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"'])+/gi, (token,offset,source) => {
+      if(!/^https?:\/\/(?:www\.)?instagram\.com(?=\/|$)/i.test(token)) return token;
+      const clean=token.replace(/[?#].*$/, '').replace(/\/+$/, '');
+      const path=clean.replace(/^https?:\/\/(?:www\.)?instagram\.com\/?/i, '').replace(/^\/+/, '');
+      return path+(/^https?:\/\//i.test(source.slice(offset+token.length))?'\n':'');
+    });
   }
-  function cleanNotes(text) { return normalizeBareUsernames(cleanNoteUrls(text)); }
+  function separateNoteLinks(text) {
+    const route=/(^|\s)((?:stories\/[a-z0-9._]+(?:\/\d+)?|(?:reel|p|tv)\/[a-z0-9_-]+)\/?)/gi;
+    return String(text).replace(route,(match,space,link,offset,whole)=>{
+      const lineStart=Math.max(whole.lastIndexOf('\n',offset-1),whole.lastIndexOf('\r',offset-1))+1;
+      if(offset===0 || !whole.slice(lineStart,offset).trim()) return space+link;
+      return '\n'+link;
+    });
+  }
+  function cleanNoteUrls(text) {
+    return separateNoteLinks(compactInstagramUrls(normalizeBareUsernames(text)));
+  }
+  function cleanNotes(text) { return cleanNoteUrls(text); }
   function parseUrls(text, skipInvalid) {
     const urls = [];
-    const source = normalizeBareUsernames(String(text)).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
+    const source = normalizeBareUsernames(String(text))
+      .replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2')
+      .replace(/(^|[\s(])((?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)\/?)(?=$|[\s),;.!?])/gi, '$1https://www.instagram.com/$2');
     // Stop at the next scheme, including when share links have no separator.
     const parts = source.match(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"“”])+/gi) || [];
     for (let part of parts) {
@@ -90,9 +107,7 @@
     return urls;
   }
   function countNoteLinks(text) {
-    const source = cleanNotes(text);
-    const tokens = source.match(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi) || [];
-    return tokens.reduce((count, token) => count + parseUrls(token, true).length, 0);
+    return cleanNotes(text).split(/\r?\n/).reduce((count,line)=>count+parseUrls(line,true).length,0);
   }
   function numeric(value, label) {
     if (!/^\d+(?:\.\d+)?$/.test(String(value).trim()) || !Number.isFinite(Number(value)))

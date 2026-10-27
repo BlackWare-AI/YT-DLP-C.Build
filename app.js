@@ -192,8 +192,8 @@ function showNotesDailyHistory() {
   const records=state.notesDailyHistory.slice().sort((a,b)=>b.date.localeCompare(a.date));
   if(!records.length) {root.textContent='Henüz not günlüğü kaydı yok.';return;}
   for(const record of records) {
-    const section=document.createElement('section');section.className='daily-note-item';
-    const title=document.createElement('h3');
+    const section=document.createElement('details');section.className='daily-note-item';
+    const title=document.createElement('summary');
     const [year,month,day]=record.date.split('-').map(Number);
     title.textContent=new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
     const body=document.createElement('pre');body.textContent=record.notes;
