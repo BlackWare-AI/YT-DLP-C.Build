@@ -81,9 +81,9 @@
     });
   }
   function cleanNoteUrls(text) {
-    return separateNoteLinks(compactInstagramUrls(normalizeBareUsernames(text)));
+    return separateNoteLinks(compactInstagramUrls(text));
   }
-  function cleanNotes(text) { return cleanNoteUrls(text); }
+  function cleanNotes(text) { return cleanNoteUrls(normalizeBareUsernames(text)); }
   function parseUrls(text, skipInvalid) {
     const urls = [];
     const source = normalizeBareUsernames(String(text))

@@ -183,5 +183,6 @@ test('standalone Instagram usernames become Story account URLs in main links and
 });
 test('note link counter counts note entries and ignores non-Instagram text',()=>{
  assert.equal(B.countNoteLinks('hilaalats V4S\nhttps://instagram.com/reel/abc?utm_source=x V\nhttps://instagram.com/reel/abc V'),3);
+ assert.equal(B.cleanNoteUrls('Yeni'),'Yeni');
  assert.equal(B.countNoteLinks('V1s\nözel not'),0);
 });
