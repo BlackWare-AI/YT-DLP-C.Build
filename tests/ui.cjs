@@ -196,6 +196,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.inputValue('#links'),'https://www.instagram.com/stories/kimfloresgz');
   assert.match(await page.textContent('#output'),/stories\/kimfloresgz/);
   await page.fill('#links','');
+  await page.fill('#links','https://instagram.com/reel/abc/');
   await page.click('#notesBtn');await page.fill('#notes','recovery note');await page.click('#notesClose');
   await page.evaluate(()=>localStorage.setItem('builder.state','broken primary'));await page.reload();assert.equal(await page.inputValue('#notes'),'recovery note');assert.match(await page.inputValue('#links'),/reel\/abc/);
   console.log('PASS: notes, pending link, equal action buttons and corrupt-primary recovery');
