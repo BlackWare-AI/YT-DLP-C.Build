@@ -51,13 +51,25 @@
     return start + ':' + (end === null ? '' : end);
   }
   // Clean only Instagram URL tokens, preserving all surrounding free-form notes.
-  function cleanNotes(text) {
+  const formatOnlyLine = /^(?:v(?:\+\s*s|\d+(?:s|sec)?|\d+s?)?|s(?:clip)?)(?:\s*[:(].*)?$/i;
+  const bareUsernameLine = /^(\s*)@?([a-z0-9._]{1,30})(.*)$/i;
+  function normalizeBareUsernames(text) {
+    return String(text).replace(/^([^\r\n]*)$/gm, line => {
+      const match = line.match(bareUsernameLine);
+      if (!match || formatOnlyLine.test(match[2]) || match[2].startsWith('.') || match[2].endsWith('.') || match[2].includes('..')) return line;
+      const suffix=match[3];
+      if (suffix && !/^\s+(?:v\+\s*s|v\d+(?:s|sec)?|v\d+s|v|sclip|s)(?:\b|(?=\())/i.test(suffix)) return line;
+      return match[1] + 'https://www.instagram.com/stories/' + match[2] + suffix;
+    });
+  }
+  function cleanNoteUrls(text) {
     return String(text).replace(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi,
       token => token.replace(/[?#].*$/, ''));
   }
+  function cleanNotes(text) { return normalizeBareUsernames(cleanNoteUrls(text)); }
   function parseUrls(text, skipInvalid) {
     const urls = [];
-    const source = String(text).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
+    const source = normalizeBareUsernames(String(text)).replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2');
     // Stop at the next scheme, including when share links have no separator.
     const parts = source.match(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"“”])+/gi) || [];
     for (let part of parts) {
@@ -76,6 +88,11 @@
       }
     }
     return urls;
+  }
+  function countNoteLinks(text) {
+    const source = cleanNotes(text);
+    const tokens = source.match(/https?:\/\/(?:www\.)?instagram\.com(?=[/?#\s]|$)[^\s<>"']*/gi) || [];
+    return tokens.reduce((count, token) => count + parseUrls(token, true).length, 0);
   }
   function numeric(value, label) {
     if (!/^\d+(?:\.\d+)?$/.test(String(value).trim()) || !Number.isFinite(Number(value)))
@@ -138,5 +155,5 @@
     return {command:args.join(' \\\n  '), urls, settings:s,
       cuts:['av','video'].includes(s.mode) ? cuts : [], selection:input.selection || {}, commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, cleanNotes, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
+  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, normalizeBareUsernames, cleanNoteUrls, cleanNotes, countNoteLinks, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
 });

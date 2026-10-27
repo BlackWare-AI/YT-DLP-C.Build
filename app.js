@@ -5,6 +5,7 @@ let state, storageError = '', copying = false;
 function validState(v) {
   return v && typeof v.settings==='object' && v.settings && !Array.isArray(v.settings) &&
     Array.isArray(v.history) && Array.isArray(v.cuts) && typeof v.links==='string' &&
+    (v.notesDailyHistory===undefined || Array.isArray(v.notesDailyHistory)) &&
     (v.notes===undefined || typeof v.notes==='string') && (v.newLink===undefined || typeof v.newLink==='string');
 }
 function readState() {
@@ -31,6 +32,7 @@ state.schema=2;
 state.selection={only:'',after:'',before:'',...state.selection};
 state.notes=state.notes===undefined ? '' : state.notes;
 state.newLink=state.newLink===undefined ? '' : state.newLink;
+state.notesDailyHistory=Array.isArray(state.notesDailyHistory) ? state.notesDailyHistory : [];
 function persist() {
   if(storageError) throw Error(storageError);
   if(native) {
@@ -73,6 +75,9 @@ function renderCuts() {
     del.onclick=()=>{ state.cuts.splice(i,1); renderCuts(); save(); preview(); };
     row.append(del); $('cuts').append(row);
   });
+}
+function renderNotesCount() {
+  $('notesCount').textContent=Builder.countNoteLinks(state.notes)+' bağlantı';
 }
 function renderLinks(urls) {
   $('count').textContent=urls.length+' bağlantı';
@@ -120,7 +125,7 @@ function hydrate() {
   for(const [key,id] of [['only','itemOnly'],['after','itemAfter'],['before','itemBefore']]) $(id).value=state.selection[key];
   for (const key of ['folder','cookies','requests','min','max','thumb','overwrite'])
     $(key)[['thumb','overwrite'].includes(key)?'checked':'value']=state.settings[key];
-  renderButtons(); renderCuts(); preview();
+  renderButtons(); renderCuts(); renderNotesCount(); preview();
 }
 async function copyText(text) {
   if (native) { if (!native.copy(text)) throw Error('Pano işlemi başarısız.'); }
@@ -171,6 +176,26 @@ function showHistory() {
     item.append(actions); $('history').append(item);
   });
 }
+function showNotesDailyHistory() {
+  const root=$('notesDailyHistory');root.textContent='';
+  const records=state.notesDailyHistory.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  if(!records.length) {root.textContent='Henüz not günlüğü kaydı yok.';return;}
+  for(const record of records) {
+    const section=document.createElement('section');section.className='daily-note-item';
+    const title=document.createElement('h3');
+    const [year,month,day]=record.date.split('-').map(Number);
+    title.textContent=new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    const body=document.createElement('pre');body.textContent=record.notes;
+    section.append(title,body);root.append(section);
+  }
+}
+function showHistoryPanel(panel) {
+  const notes=panel==='notes';
+  $('historyView').hidden=notes;$('notesLogView').hidden=!notes;
+  $('historyTab').classList.toggle('active',!notes);$('historyTab').setAttribute('aria-selected',String(!notes));
+  $('notesLogTab').classList.toggle('active',notes);$('notesLogTab').setAttribute('aria-selected',String(notes));
+  if(notes) showNotesDailyHistory(); else showHistory();
+}
 for (const key of ['folder','cookies','requests','min','max','thumb','overwrite']) {
   $(key).oninput=()=>{ state.settings[key]=['thumb','overwrite'].includes(key)?$(key).checked:$(key).value; save(); preview(); };
 }
@@ -205,7 +230,18 @@ $('newLink').oninput=()=>{state.newLink=$('newLink').value;save();};
 $('newLink').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('addLink').click();}};
 for(const [key,id] of [['only','itemOnly'],['after','itemAfter'],['before','itemBefore']]) $(id).oninput=()=>{state.selection[key]=$(id).value;save();preview();};
 $('fullVideo').onclick=()=>{state.cuts=[];renderCuts();save();preview();};
-$('links').oninput=()=>{state.links=$('links').value; save(); preview();};
+$('links').oninput=e=>{
+  let value=$('links').value;
+  if(e.inputType==='insertFromPaste') {
+    const normalized=Builder.normalizeBareUsernames(value);
+    if(normalized!==value) {$('links').value=normalized;value=normalized;}
+  }
+  state.links=value; save(); preview();
+};
+$('links').addEventListener('blur',()=>{
+  const normalized=Builder.normalizeBareUsernames($('links').value);
+  if(normalized!==$('links').value) {$('links').value=normalized;state.links=normalized;save();preview();}
+});
 $('addCut').onclick=()=>{state.cuts.push({start:'0',end:'1'}); renderCuts(); save(); preview();};
 $('copy').onclick=async()=>{
   if(copying) return;
@@ -236,25 +272,28 @@ $('copy').onclick=async()=>{
   } catch(e) { $('status').textContent=e.message; }
   finally {copying=false;preview();}
 };
-$('historyBtn').onclick=()=>{showHistory(); $('dialog').showModal();};
+$('historyBtn').onclick=()=>{showHistoryPanel('commands'); $('dialog').showModal();};
+$('historyTab').onclick=()=>showHistoryPanel('commands');
+$('notesLogTab').onclick=()=>showHistoryPanel('notes');
 $('close').onclick=()=>$('dialog').close();
 $('clear').onclick=()=>{
   if (!confirm('Tüm işlem geçmişi kalıcı olarak silinsin mi?')) return;
   const old=state.history; state.history=[];
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(e.message); }
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.6',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.8',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
   $('notesStatus').textContent=save() ? 'Kaydedildi' : $('status').textContent;
+  renderNotesCount();
 }
 function cleanNoteUrls() {
   const editor=$('notes'), raw=editor.value, cleaned=Builder.cleanNotes(raw);
-  if(raw===cleaned) return;
+  if(raw===cleaned) return false;
   const start=Builder.cleanNotes(raw.slice(0,editor.selectionStart)).length;
   const end=Builder.cleanNotes(raw.slice(0,editor.selectionEnd)).length;
-  editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();
+  editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();return true;
 }
 $('notes').oninput=e=>{
   if(e.inputType==='insertFromPaste') cleanNoteUrls();
@@ -263,8 +302,8 @@ $('notes').oninput=e=>{
 $('notes').addEventListener('blur',cleanNoteUrls);
 function insertNoteText(text) {
   const editor=$('notes');
-  editor.setRangeText(Builder.cleanNotes(text),editor.selectionStart,editor.selectionEnd,'end');
-  saveNotes();
+  editor.setRangeText(Builder.cleanNoteUrls(text),editor.selectionStart,editor.selectionEnd,'end');
+  if(!cleanNoteUrls()) saveNotes();
 }
 $('notes').addEventListener('paste',e=>{
   if(!e.clipboardData) return;
@@ -278,6 +317,14 @@ $('notesPaste').onclick=async()=>{
     if(!text) throw Error('Pano boş veya metin içermiyor.');
     insertNoteText(text);
   } catch(e) {$('notesStatus').textContent=e.message || 'Pano okunamadı.';}
+};
+$('notesClear').onclick=()=>{
+  if(!$('notes').value) return;
+  if(!confirm('Link Notları içeriği silinsin mi? Günlük kayıtlar ve işlem geçmişi korunur.')) return;
+  const old=state.notes;state.notes='';$('notes').value='';
+  if(!save()) {state.notes=old;$('notes').value=old;renderNotesCount();$('notesStatus').textContent=$('status').textContent;return;}
+  renderNotesCount();
+  $('notesStatus').textContent='Notlar silindi · Günlük kayıtlar korundu';
 };
 let notePointer=null;
 $('notes').addEventListener('pointerdown',e=>{
@@ -320,6 +367,26 @@ window.handleBack=()=>{
   return false;
 };
 window.prepareExit=()=>save();
+const NOTES_DAILY_CHECK_MS=10*60*1000;
+function localDateKey(date) {
+  return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+}
+function checkNotesDailyLog(date=new Date()) {
+  const notes=Builder.cleanNotes(state.notes).trim();
+  if(!notes) return false;
+  const key=localDateKey(date), previous=state.notesDailyHistory;
+  const index=previous.findIndex(record=>record.date===key);
+  if(index>=0 && previous[index].notes===notes) return false;
+  const next=previous.map(record=>({...record}));
+  if(index>=0) next[index]={date:key,notes};
+  else next.push({date:key,notes});
+  next.sort((a,b)=>b.date.localeCompare(a.date));
+  state.notesDailyHistory=next;
+  try {persist();return true;}
+  catch(e) {state.notesDailyHistory=previous;$('notesStatus').textContent='Günlük not kaydı yapılamadı: '+e.message;return false;}
+}
+window.checkNotesDailyLog=checkNotesDailyLog;
+window.setInterval(()=>checkNotesDailyLog(),NOTES_DAILY_CHECK_MS);
 // Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=storageError;

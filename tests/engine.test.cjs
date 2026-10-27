@@ -164,3 +164,15 @@ test('note cleaning removes only Instagram sharing suffixes and preserves format
   assert.equal(B.cleanNotes('Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/#shared S'), 'Not ?aynı #kalsın https://example.com/a?q=1 V https://instagram.com.evil/a?q=2\nhttps://instagram.com/reel/ABC/ S');
   assert.equal(B.cleanNotes('  https://instagram.com/p/ABC?igsh=x\tV+S\n'), '  https://instagram.com/p/ABC\tV+S\n');
 });
+test('standalone Instagram usernames become Story account URLs in main links and notes',()=>{
+ assert.deepEqual(B.parseUrls('hilaalats\n@elisha__h'),[
+  'https://www.instagram.com/stories/hilaalats','https://www.instagram.com/stories/elisha__h'
+ ]);
+ assert.equal(B.cleanNotes('hilaalats V4S\nV1s\n@elisha__h S'),
+  'https://www.instagram.com/stories/hilaalats V4S\nV1s\nhttps://www.instagram.com/stories/elisha__h S');
+ assert.deepEqual(B.parseUrls('V1s'),[]);
+});
+test('note link counter counts note entries and ignores non-Instagram text',()=>{
+ assert.equal(B.countNoteLinks('hilaalats V4S\nhttps://instagram.com/reel/abc?utm_source=x V\nhttps://instagram.com/reel/abc V'),3);
+ assert.equal(B.countNoteLinks('V1s\nözel not'),0);
+});

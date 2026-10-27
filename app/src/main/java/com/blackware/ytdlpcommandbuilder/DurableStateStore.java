@@ -43,6 +43,7 @@ final class DurableStateStore {
         state.getJSONObject("settings");
         state.getJSONArray("cuts");
         state.getJSONArray("history");
+        if (state.has("notesDailyHistory")) state.getJSONArray("notesDailyHistory");
         if (!(state.get("links") instanceof String)) throw new IllegalArgumentException("Invalid draft");
         for (String key : new String[]{"notes", "newLink"}) {
             if (state.has(key) && !(state.get(key) instanceof String)) throw new IllegalArgumentException("Invalid " + key);
