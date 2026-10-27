@@ -323,6 +323,7 @@ $('notesClear').onclick=()=>{
   if(!confirm('Link Notları içeriği silinsin mi? Günlük kayıtlar ve işlem geçmişi korunur.')) return;
   const old=state.notes;state.notes='';$('notes').value='';
   if(!save()) {state.notes=old;$('notes').value=old;renderNotesCount();$('notesStatus').textContent=$('status').textContent;return;}
+  renderNotesCount();
   $('notesStatus').textContent='Notlar silindi · Günlük kayıtlar korundu';
 };
 let notePointer=null;
