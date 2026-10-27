@@ -149,7 +149,7 @@ const root=path.resolve(__dirname,'..');
   await page.click('#historyBtn');
   const backupPromise=page.waitForEvent('download');await page.click('#exportSettings');const backupDownload=await backupPromise;
   const backup=JSON.parse(fs.readFileSync(await backupDownload.path(),'utf8'));
-  assert.equal(backup.state.notes,note);assert.deepEqual(backup.state,await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state'))));assert.equal(backup.state.selection.after,'3');assert.equal(backup.state.cuts.length,2);assert.equal(backup.state.settings.mode,'still');assert.equal(backup.state.history.length,1);
+  assert.equal(backup.state.notes,compactNote);assert.deepEqual(backup.state,await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state'))));assert.equal(backup.state.selection.after,'3');assert.equal(backup.state.cuts.length,2);assert.equal(backup.state.settings.mode,'still');assert.equal(backup.state.history.length,1);
   await page.click('#close');const selectedCommand=await page.textContent('#output');await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).cuts.length),0);
   for(const id of ['itemOnly','itemAfter','itemBefore']) assert.equal(await page.inputValue('#'+id),'');
