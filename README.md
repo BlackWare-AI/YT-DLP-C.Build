@@ -20,10 +20,10 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Video segments:** add multiple start/end ranges, including ranges that end at the end of a video.
 - **Audio artwork:** optionally embed available thumbnails in audio files.
 - **Advanced settings:** customize download and cookies paths, request delays, and overwrite behavior.
-- **Link Notes:** a full-screen AMOLED notepad slides in from the left. Tap unused lines to place the caret without repeatedly pressing Enter; paste from the in-editor clipboard button or the standard paste menu. Instagram query strings and fragments are removed on paste and when leaving/opening the editor, preserving surrounding format notes and line breaks. Store links, preferred formats and custom requests as free text; every edit is saved immediately. Closing with × or Back keeps notes, and copying commands never clears them. The two equal action buttons are Link Notes on the left and Copy Command on the right.
+- **Link Notes:** a full-screen AMOLED notepad slides in from the left. The header shows the number of Instagram links. A standalone Instagram username is converted to its Story account URL in both the notes and main link field; recognized format annotations such as `V1s` remain text. Paste/query cleanup preserves surrounding format notes. A confirmed clear action removes only the current notes; operation history and archived daily notes remain intact. Notes and drafts are persisted locally.
 - **Command preview and copy:** inspect the complete shell command before using it.
-- **Local history:** review previous commands and export records as text.
-- **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, notes, unfinished input, item selection, cuts and complete history. Cookies file contents are never read. This change adds export only.
+- **Local history:** switch between copied-command history and a separate Notes Log. While the app is open, notes are checked every ten minutes; one snapshot is kept per local calendar day and updated only when that day’s note text changes. Empty notes do not create records. Clearing notes never deletes either history.
+- **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, notes, unfinished input, item selection, cuts, command history and the daily Notes Log. Cookies file contents are never read.
 - **Offline and private:** no analytics, ads, account login, or network access required by the app.
 - **AMOLED-friendly interface:** a minimal black design optimized for Android.
 
@@ -73,7 +73,7 @@ Actual downloading and any resulting errors are handled by yt-dlp when you run t
 
 ## Privacy and data
 
-Settings, drafts, unfinished add-link input, notes, selections and complete history are stored locally. Every edit is synchronously saved. Android keeps two independent AtomicFile snapshots with SHA-256 checksums and monotonically increasing revisions, plus a synchronized SharedPreferences mirror. The newest valid copy is restored after interruption or damage; legacy preferences migrate automatically. If all copies are unreadable, saving is blocked rather than replacing them with empty defaults. Browser builds use two localStorage slots and recover the newest valid snapshot. Saved state survives backgrounding and process termination; clearing app data or uninstalling removes local data. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
+Settings, drafts, unfinished add-link input, notes, selections, command history and one-per-day note snapshots are stored locally. Every edit is synchronously saved. Android keeps two independent AtomicFile snapshots with SHA-256 checksums and monotonically increasing revisions, plus a synchronized SharedPreferences mirror. The newest valid copy is restored after interruption or damage; legacy preferences migrate automatically. If all copies are unreadable, saving is blocked rather than replacing them with empty defaults. Browser builds use two localStorage slots and recover the newest valid snapshot. Saved state survives backgrounding and process termination; clearing app data or uninstalling removes local data. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
 
 ## Building from source
 
@@ -82,7 +82,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.0.7`
+- Current documented version: `1.0.8`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -94,7 +94,7 @@ Press Back twice within two seconds on the main screen to exit. Back first dismi
 
 All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.7-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.0.8-debug`.
 
 Validation commands:
 
@@ -109,7 +109,7 @@ gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
 gradle :app:connectedDebugAndroidTest
 ```
 
-CI tests Android 10/15 native clipboard append/copy, draft persistence, successful-copy clearing, history and TXT export. Separate instrumentation processes verify saved-draft recovery across `am force-stop`. Web tests cover failed clipboard/storage writes, duplicate handling, history and responsive layouts; shell tests verify argument preservation with Bash and sh. Local synthetic yt-dlp/FFmpeg fixtures verify multi-URL/multi-cut outputs, metadata fallbacks, codecs and thumbnails without accessing Instagram. Physical-device keyboard/gesture/file-picker checks and a real phone reboot remain manual checks.
+CI tests Android 10/15 native clipboard append/copy, draft persistence, successful-copy clearing, history and TXT export. Separate instrumentation processes verify saved-draft recovery across `am force-stop`. Web tests cover failed clipboard/storage writes, duplicate handling, daily note snapshots (one per date), note clearing without history loss, username conversion, history and responsive layouts; shell tests verify argument preservation with Bash and sh. Local synthetic yt-dlp/FFmpeg fixtures verify multi-URL/multi-cut outputs, metadata fallbacks, codecs and thumbnails without accessing Instagram. Physical-device keyboard/gesture/file-picker checks and a real phone reboot remain manual checks.
 
 Release builds require signing credentials stored in GitHub Actions secrets. Updating `.github/release-version` on main requests a signed release; the marker must match Android `versionName`. Manual workflow dispatch remains available. Release tags target the exact workflow commit; signing keys never enter source control. Refer to the workflows for build and publishing details.
 
