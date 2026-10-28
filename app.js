@@ -185,7 +185,7 @@ function showHistory() {
       button('Tekrar düzenle',()=>{
         if (!h.snapshot) { alert('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.'); return; }
         state.settings=Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema); state.schema=2; state.links=h.snapshot.links;
-        state.cuts=JSON.parse(JSON.stringify(h.snapshot.cuts)); state.selection={only:'',after:'',before:'',...h.snapshot.selection}; save(); hydrate(); $('dialog').close(); window.scrollTo(0,0);
+        state.cuts=JSON.parse(JSON.stringify(h.snapshot.cuts)); state.selection={only:'',after:'',before:'',...h.snapshot.selection}; save(); hydrate(); closeHistory(); window.scrollTo(0,0);
       }), button('Sil',async()=>{
         if (!await askConfirm('Bu işlem geçmişi kaydı silinsin mi?',{title:'Kaydı sil'})) return;
         const old=state.history; state.history=old.filter((_,n)=>n!==i);
@@ -300,10 +300,24 @@ $('copy').onclick=async()=>{
   } catch(e) { $('status').textContent=e.message; }
   finally {copying=false;preview();}
 };
-$('historyBtn').onclick=()=>{showHistoryPanel('commands'); $('dialog').showModal();};
+let historyScrollY=0;
+function unlockHistoryScroll() {
+  if(!document.documentElement.classList.contains('history-open')) return;
+  document.documentElement.classList.remove('history-open');
+  document.documentElement.style.removeProperty('--history-scroll-top');
+  window.scrollTo(0,historyScrollY);
+}
+function closeHistory() { $('dialog').close(); unlockHistoryScroll(); }
+$('historyBtn').onclick=()=>{
+  showHistoryPanel('commands'); historyScrollY=window.scrollY;
+  document.documentElement.style.setProperty('--history-scroll-top',-historyScrollY+'px');
+  document.documentElement.classList.add('history-open'); $('dialog').showModal();
+};
+$('dialog').addEventListener('cancel',e=>{e.preventDefault();closeHistory();});
+$('dialog').addEventListener('close',unlockHistoryScroll);
 $('historyTab').onclick=()=>showHistoryPanel('commands');
 $('notesLogTab').onclick=()=>showHistoryPanel('notes');
-$('close').onclick=()=>$('dialog').close();
+$('close').onclick=closeHistory;
 $('clear').onclick=()=>{
   askConfirm('Tüm işlem geçmişi kalıcı olarak silinsin mi?',{title:'İşlem geçmişini temizle',accept:'Tümünü sil'}).then(confirmed=>{
   if (!confirmed) return;
@@ -393,7 +407,7 @@ $('notesClose').onclick=closeNotes;
 $('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();});
 window.handleBack=()=>{
   if($('notesDialog').open) {closeNotes();return true;}
-  if($('dialog').open) {$('dialog').close();return true;}
+  if($('dialog').open) {closeHistory();return true;}
   return false;
 };
 window.prepareExit=()=>save();

@@ -34,6 +34,23 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.evaluate(()=>document.querySelector('main').lastElementChild.id),'updateSection');
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
   assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));
+  const markers=await page.evaluate(()=>['#engines button.active','#modes button.active'].map(selector=>{
+    const s=getComputedStyle(document.querySelector(selector),'::after');
+    return {content:s.content,width:s.width,height:s.height,color:s.backgroundColor};
+  }));
+  assert.deepEqual(markers,[{content:'""',width:'6px',height:'6px',color:'rgb(255, 255, 255)'},{content:'""',width:'4.5px',height:'4.5px',color:'rgb(255, 255, 255)'}]);
+  for(const close of ['button','escape','back']) {
+    await page.evaluate(()=>{window.scrollTo(0,450);document.getElementById('historyBtn').click();});
+    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),true);
+    const lockedTop=await page.locator('body').evaluate(el=>el.getBoundingClientRect().top);
+    await page.mouse.move(2,400);await page.mouse.wheel(0,500);
+    assert.equal(await page.locator('body').evaluate(el=>el.getBoundingClientRect().top),lockedTop);
+    if(close==='button') await page.click('#close');
+    else if(close==='escape') await page.keyboard.press('Escape');
+    else await page.evaluate(()=>window.handleBack());
+    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),false);
+    assert.equal(await page.evaluate(()=>window.scrollY),450);
+  }
 
   assert.equal(await page.evaluate(()=>document.querySelector('.setup').nextElementSibling.contains(document.getElementById('copy'))),true);
   assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
