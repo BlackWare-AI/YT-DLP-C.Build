@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import site
 import subprocess
 import sys
 import tempfile
@@ -30,10 +31,6 @@ def child():
                               vcodec='h264',acodec='none',width=160,height=120,fps=24),
                          dict(format_id='a',url=base+'audio.m4a',ext='m4a',
                               vcodec='none',acodec='aac',abr=96)])
-    if os.environ.get('FIXTURE_FRAME') == '1':
-        info['formats'] = [dict(format_id='frame-v',url=base+'frame-video.mp4',ext='mp4',
-                                vcodec='h264',acodec='none',width=160,height=120,fps=24,
-                                http_headers={'User-Agent':'Frame integration agent','Referer':base})]
     if os.environ.get('FIXTURE_OPUS') == '1':
         info['formats'].append(dict(format_id='opus-best',url=base+'audio.opus',ext='opus',vcodec='none',acodec='opus',abr=160))
     if os.environ.get('FIXTURE_LOG'):
@@ -56,8 +53,8 @@ def main():
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self,*args): pass
         def do_GET(self):
-            if self.path == '/frame-video.mp4' and (self.headers.get('Cookie') != 'sessionid=frame-fixture' or self.headers.get('User-Agent') != 'Frame integration agent' or self.headers.get('Referer') != f'http://127.0.0.1:{server.server_port}/'):
-                self.send_error(403,'Frame fixture requires yt-dlp cookies and stream headers')
+            if self.path == '/video.mp4' and os.environ.get('FIXTURE_FRAME') == '1' and self.headers.get('Cookie') != 'sessionid=frame-fixture':
+                self.send_error(403,'Frame fixture requires yt-dlp cookies')
                 return
             path=Path(self.translate_path(self.path))
             if not path.is_file(): return super().do_GET()
@@ -79,7 +76,6 @@ def main():
         folder=Path(td); media=folder/'media'; media.mkdir(); output=folder/'output'; output.mkdir()
         run(['ffmpeg','-v','error','-f','lavfi','-i','testsrc2=size=160x120:rate=24','-t','6','-c:v','libx264','-pix_fmt','yuv420p','-g','24','-keyint_min','24','-sc_threshold','0','-movflags','+faststart',str(media/'video.mp4')])
         import shutil
-        shutil.copyfile(media/'video.mp4',media/'frame-video.mp4')
         run(['ffmpeg','-v','error','-f','lavfi','-i','sine=frequency=440','-t','6','-c:a','aac',str(media/'audio.m4a')])
         run(['ffmpeg','-v','error','-f','lavfi','-i','color=c=blue:s=128x128','-frames:v','1','-threads','1',str(media/'cover.jpg')])
         run(['ffmpeg','-v','error','-f','lavfi','-i','sine=frequency=880','-t','6','-c:a','libopus','-b:a','160k',str(media/'audio.opus')])
@@ -171,18 +167,25 @@ def main():
                         direct=ydl.process_ie_result(dict(id='9',title='direct',url=f'http://127.0.0.1:{server.server_port}/video.mp4',ext='mp4',vcodec='h264',acodec='none'),download=False)
                         assert direct['id']=='9'
             print('PASS: real yt-dlp item selection: blank/single/before/after/range, four modes, collection playlists and unaffected direct media')
-            # Frame uses yt-dlp cookies for resolution, then forwards matching cookies
-            # and extractor-provided headers to FFmpeg's direct media request.
+            # Frame downloads the first second through yt-dlp, extracts one full-resolution PNG,
+            # and removes the temporary video from Termux private storage.
             frame_home=folder/'frame-home';frame_home.mkdir()
             (frame_home/'cookies.txt').write_text('# Netscape HTTP Cookie File\n127.0.0.1\tFALSE\t/\tFALSE\t1893456000\tsessionid\tframe-fixture\n')
-            frame_data=dict(links='https://www.instagram.com/stories/frame.fixture/501',cuts=[],selection={},settings=dict(engine='normal',mode='frame',folder=str(output),cookies='$HOME/cookies.txt',requests='0',min='0',max='0'))
+            frame_bin=frame_home/'yt-dlp-story-test'/'bin';frame_bin.mkdir(parents=True)
+            frame_bin.joinpath('yt-dlp').write_text(wrapper.read_text())
+            frame_bin.joinpath('yt-dlp').chmod(0o755)
+            frame_data=dict(links='https://www.instagram.com/stories/frame.fixture/501',cuts=[],selection={},settings=dict(engine='experimental',mode='frame',folder=str(output),cookies='$HOME/cookies.txt',requests='0',min='0',max='0'))
             frame_script="const B=require('./engine');process.stdout.write(B.build(JSON.parse(process.argv[1])).command)"
             frame_cmd=run(['node','-e',frame_script,json.dumps(frame_data)],cwd=ROOT,text=True).stdout
-            result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'FIXTURE_FRAME':'1'},text=True)
+            frame_prefix=frame_home/'termux';frame_prefix.mkdir()
+            pythonpath=os.pathsep.join(filter(None,[os.environ.get('PYTHONPATH',''),site.getusersitepackages()]))
+            result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'PREFIX':str(frame_prefix),'PYTHONPATH':pythonpath,'FIXTURE_FRAME':'1'},text=True)
             frame_files=list((frame_home/'storage/shared/Download/Apps/YT-DLP/Frame').glob('*.png'))
             assert len(frame_files)==1,result.stdout
-            assert probe(frame_files[0])['streams'][0]['width']==160
-            print('PASS: Frame HTTP media request uses the matching Netscape cookie and yt-dlp stream headers')
+            frame_meta=probe(frame_files[0]);assert frame_meta['streams'][0]['codec_name']=='png'
+            assert frame_meta['streams'][0]['width']==160 and frame_meta['streams'][0]['height']==120
+            assert not list(frame_prefix.glob('tmp/ytdlp-frame.*'))
+            print('PASS: Frame yt-dlp cookie download, one PNG at source resolution, and temporary video cleanup')
 
         except subprocess.CalledProcessError as e:
             print(e.stdout); raise
