@@ -6,8 +6,8 @@ android {
         applicationId = "com.blackware.ytdlpcommandbuilder"
         minSdk = 29
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.8"
+        versionCode = 10
+        versionName = "1.0.9"
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
     signingConfigs {
