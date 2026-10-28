@@ -37,12 +37,13 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.FutureTask;
 
-/** Only packaged assets are served. The app has no INTERNET/storage permissions. */
+/** Only packaged assets are served; update traffic runs outside the offline WebView. */
 public final class MainActivity extends Activity {
     private static final String ORIGIN = "https://app.local/";
     private static final int EXPORT_TEXT = 41;
     private static final Set<String> ASSETS = new HashSet<>(Arrays.asList("index.html", "engine.js", "app.js", "styles.css"));
     private WebView web;
+    private UpdateController updater;
     private SharedPreferences prefs;
     private boolean exporting;
     private DurableStateStore stateStore;
@@ -116,6 +117,8 @@ public final class MainActivity extends Activity {
                 return true;
             }
         });
+        updater = new UpdateController(this, (message, busy) -> web.evaluateJavascript(
+            "window.setUpdateStatus && window.setUpdateStatus(" + org.json.JSONObject.quote(message) + "," + busy + ")", null));
         web.addJavascriptInterface(new Bridge(), "Android");
         root.addView(web, new FrameLayout.LayoutParams(-1,-1));
         setContentView(root);
@@ -123,6 +126,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class Bridge {
+        @JavascriptInterface public void checkUpdates() { runOnUiThread(() -> updater.check()); }
         @JavascriptInterface public String getState() { return stateStore.read(); }
         @JavascriptInterface public boolean saveState(String value) { return stateStore.save(value); }
         @JavascriptInterface public String readClipboard() {
@@ -170,6 +174,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == UpdateController.INSTALL_PERMISSION) { updater.onPermissionResult(); return; }
         if (request != EXPORT_TEXT) return;
         exporting = false;
         if (result != RESULT_OK || data == null || data.getData() == null) {
@@ -221,6 +226,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onPause() { lastBackAt = 0; super.onPause(); }
     @Override protected void onDestroy() {
+        updater.close();
         web.removeJavascriptInterface("Android"); web.destroy(); super.onDestroy();
     }
 }

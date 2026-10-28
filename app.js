@@ -427,3 +427,14 @@ window.setInterval(()=>checkNotesDailyLog(),NOTES_DAILY_CHECK_MS);
 // Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=storageError;
+
+window.setUpdateStatus=(message,busy)=>{
+  $('updateStatus').textContent=message;
+  $('checkUpdate').disabled=Boolean(busy);
+};
+$('checkUpdate').onclick=()=>{
+  if(window.Android && typeof Android.checkUpdates==='function') {
+    window.setUpdateStatus('Güncelleme kontrol ediliyor…',true);
+    Android.checkUpdates();
+  } else window.setUpdateStatus('Güncelleme kontrolü Android uygulamasında kullanılabilir.',false);
+};

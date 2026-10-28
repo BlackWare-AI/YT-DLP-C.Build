@@ -1,5 +1,7 @@
 ## YT-DLP Command Builder 1.1.1
 
+- Added a bottom update button: check GitHub Releases, download a verified signed APK and open Android’s installer. Same-version APK replacements are detected.
+
 - Frame downloads only the first second without audio or video re-encoding and extracts a full-resolution JPG once with `-q:v 1 -pix_fmt yuvj444p`.
 - Frame commands keep cookie handling in yt-dlp and continue processing other links after an individual failure.
 - Frame uses the configured download directory and preserves existing outputs with numbered filenames.

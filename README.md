@@ -24,7 +24,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Command preview and copy:** inspect the complete shell command before using it.
 - **Local history:** switch between copied-command history and a separate Notes Log. While the app is open, notes are checked every ten minutes; one snapshot is kept per local calendar day and updated only when that day’s note text changes. Empty notes do not create records. Clearing notes never deletes either history.
 - **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, notes, unfinished input, item selection, cuts, command history and the daily Notes Log. Cookies file contents are never read.
-- **Offline and private:** no analytics, ads, account login, or network access required by the app.
+- **Offline and private:** no analytics, ads or account login. Command building stays offline; the optional GitHub updater uses network access only when requested.
 - **AMOLED-friendly interface:** a minimal black design optimized for Android.
 
 ## How to use
@@ -73,7 +73,7 @@ Actual downloading and any resulting errors are handled by yt-dlp when you run t
 
 ## Privacy and data
 
-Settings, drafts, unfinished add-link input, notes, selections, command history and one-per-day note snapshots are stored locally. Every edit is synchronously saved. Android keeps two independent AtomicFile snapshots with SHA-256 checksums and monotonically increasing revisions, plus a synchronized SharedPreferences mirror. The newest valid copy is restored after interruption or damage; legacy preferences migrate automatically. If all copies are unreadable, saving is blocked rather than replacing them with empty defaults. Browser builds use two localStorage slots and recover the newest valid snapshot. Saved state survives backgrounding and process termination; clearing app data or uninstalling removes local data. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. The Android app does not require internet access, and it does not include ads or analytics. Export your history before clearing app data or uninstalling the app.
+Settings, drafts, unfinished add-link input, notes, selections, command history and one-per-day note snapshots are stored locally. Every edit is synchronously saved. Android keeps two independent AtomicFile snapshots with SHA-256 checksums and monotonically increasing revisions, plus a synchronized SharedPreferences mirror. The newest valid copy is restored after interruption or damage; legacy preferences migrate automatically. If all copies are unreadable, saving is blocked rather than replacing them with empty defaults. Browser builds use two localStorage slots and recover the newest valid snapshot. Saved state survives backgrounding and process termination; clearing app data or uninstalling removes local data. Links are cleared only by user deletion or successful copying; successful copying also clears video cuts and item selection, including cuts hidden in audio/StillClip mode; a history/storage failure retains the draft. The browser prototype uses localStorage. Command building does not require internet access. The optional native GitHub updater uses Internet and package-install permissions, while the WebView stays offline. No shared-storage permission, ads or analytics are included. Export your history before clearing app data or uninstalling the app.
 
 ## Building from source
 
@@ -118,3 +118,7 @@ Release builds require signing credentials stored in GitHub Actions secrets. Upd
 Bug reports, feature suggestions, pull requests, and forks are welcome. Please keep changes focused on reliable command generation, Android usability, and compatibility with yt-dlp.
 
 **YT-DLP Command Builder is an independent community project and is not affiliated with Instagram or the yt-dlp maintainers.** Use it only for content you are authorized to access and download.
+
+## In-app updates
+
+The bottom **Güncellemeleri kontrol et** button checks the latest public GitHub Release. **İndir ve yükle** downloads the release APK into private cache, checks its SHA-256, package name, signing certificate and version, then opens Android’s installer. Android may first ask you to allow installs from this app. Installation always requires Android’s confirmation. Same-version APK replacements are detected using the release asset hash. No Instagram content or cookies are sent by the updater.

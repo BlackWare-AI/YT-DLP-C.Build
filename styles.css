@@ -26,3 +26,5 @@ header{padding:12px 2px 8px;margin-top:10px}
 .frame-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.frame-time-grid button{background:#0e0e0e;color:#aaa;text-align:left;font-size:12px;min-height:42px}.frame-time-grid button.active{background:#1a1a1a;border-color:#aaa;color:#fff}.frame-time-grid+label+#frameCustomTime{margin-top:10px}
 
 html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavior:none}.notes-dialog,.notes-editor,.notes-editor textarea{overscroll-behavior:contain}
+
+.update-section{background:#000;text-align:center;padding:16px;margin-bottom:0}.update-section button{width:100%;background:#0a0a0a;color:#ddd;min-height:46px}.update-section .muted{margin:12px 0 0}
