@@ -417,9 +417,11 @@ function checkNotesDailyLog(date=new Date()) {
 }
 window.checkNotesDailyLog=checkNotesDailyLog;
 window.setInterval(()=>checkNotesDailyLog(),NOTES_DAILY_CHECK_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden) checkNotesDailyLog();});
 // Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=storageError;
+checkNotesDailyLog();
 
 window.setUpdateStatus=(message,busy)=>{
   $('updateStatus').textContent=message;
