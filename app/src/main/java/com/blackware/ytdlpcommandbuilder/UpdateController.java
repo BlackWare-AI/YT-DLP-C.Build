@@ -178,13 +178,15 @@ final class UpdateController {
                 if (!part.renameTo(apk)) throw new IOException();
                 readyDigest=release.digest; success=true;
                 ui(()->{ busy=false; status.show("Güncelleme indirildi.",false); install(); });
-            } catch (Exception e) { finish("Güncelleme indirilemedi veya doğrulanamadı. Yeniden deneyin."); }
+            } catch (Exception ignored) { /* Cleanup completes before retry is enabled. */ }
             finally { part.delete(); if (!success) apk.delete(); }
+            if (!success) finish("Güncelleme indirilemedi veya doğrulanamadı. Yeniden deneyin.");
         });
     }
     void validatePackage(File file) throws Exception {
         PackageManager pm=activity.getPackageManager();
-        PackageInfo candidate=pm.getPackageArchiveInfo(file.getAbsolutePath(),PackageManager.GET_SIGNING_CERTIFICATES);
+        // Android 10 collects archive certificates only when GET_SIGNATURES is also set.
+        PackageInfo candidate=pm.getPackageArchiveInfo(file.getAbsolutePath(),PackageManager.GET_SIGNING_CERTIFICATES | PackageManager.GET_SIGNATURES);
         PackageInfo installed=pm.getPackageInfo(activity.getPackageName(),PackageManager.GET_SIGNING_CERTIFICATES);
         if (candidate==null || !activity.getPackageName().equals(candidate.packageName) ||
             candidate.getLongVersionCode()<installed.getLongVersionCode() ||
