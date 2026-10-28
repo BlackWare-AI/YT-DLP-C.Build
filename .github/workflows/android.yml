@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
     runs-on: ubuntu-latest
     env:
       YTDLP_DEBUG_KEYSTORE: ${{ github.workspace }}/.debug-signing/debug.keystore
