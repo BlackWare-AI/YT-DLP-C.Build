@@ -18,7 +18,7 @@ public final class StateStoreTest extends InstrumentationTestCase {
         super.setUp();
         directory = new File(getInstrumentation().getTargetContext().getCacheDir(), "store-test-" + System.nanoTime());
         assertTrue(directory.mkdirs());
-        preferences = getInstrumentation().getTargetContext().getSharedPreferences("store-test", 0);
+        preferences = getInstrumentation().getTargetContext().getSharedPreferences("store-test-" + directory.getName(), 0);
         preferences.edit().clear().commit();
         store = new DurableStateStore(directory, preferences);
     }

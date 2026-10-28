@@ -181,6 +181,15 @@ test('standalone Instagram usernames become Story account URLs in main links and
   'stories/hilaalats V4S\nV1s\nstories/elisha__h S');
  assert.deepEqual(B.parseUrls('V1s'),[]);
 });
+
+test('tagged note links regroup by first-seen format while preserving order within groups',()=>{
+ const input=[
+  'stories/a/1 V1s','stories/b/2 V','stories/c/3 V1s','stories/d/4 V','stories/e/5 V4','Format bilgisi sonda'
+ ].join('\n');
+ assert.equal(B.cleanNotes(input),[
+  'stories/a/1 V1s','stories/c/3 V1s','stories/b/2 V','stories/d/4 V','stories/e/5 V4','Format bilgisi sonda'
+ ].join('\n'));
+});
 test('note link counter counts note entries and ignores non-Instagram text',()=>{
  assert.equal(B.countNoteLinks('hilaalats V4S\nhttps://instagram.com/reel/abc?utm_source=x V\nhttps://instagram.com/reel/abc V'),3);
  assert.equal(B.cleanNoteUrls('Yeni'),'Yeni');

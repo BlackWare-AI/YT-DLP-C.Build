@@ -80,8 +80,25 @@
       return '\n'+link;
     });
   }
+  function noteFormatTag(line) {
+    const match=String(line).match(/^\s*(?:https?:\/\/(?:www\.)?instagram\.com\/)?(?:stories\/[a-z0-9._]+(?:\/[a-z0-9_-]+)?|(?:reel|p|tv)\/[a-z0-9_-]+)\s+([a-z][a-z0-9+_-]*)(?=$|\s|[(:])/i);
+    return match ? match[1].toLowerCase() : null;
+  }
+  function groupTaggedNotes(text) {
+    const lines=String(text).split(/\r?\n/), tags=new Map(), slots=[];
+    for(let i=0;i<lines.length;i++) {
+      const tag=noteFormatTag(lines[i]);
+      if(tag===null) continue;
+      if(!tags.has(tag)) tags.set(tag,tags.size);
+      slots.push({index:i,tag,order:slots.length,line:lines[i]});
+    }
+    const indexes=slots.map(item=>item.index);
+    slots.sort((a,b)=>tags.get(a.tag)-tags.get(b.tag)||a.order-b.order);
+    for(let i=0;i<slots.length;i++) lines[indexes[i]]=slots[i].line;
+    return lines.join('\n');
+  }
   function cleanNoteUrls(text) {
-    return separateNoteLinks(compactInstagramUrls(text));
+    return groupTaggedNotes(separateNoteLinks(compactInstagramUrls(text)));
   }
   function cleanNotes(text) { return cleanNoteUrls(normalizeBareUsernames(text)); }
   function parseUrls(text, skipInvalid) {
