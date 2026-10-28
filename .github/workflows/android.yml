@@ -122,6 +122,8 @@ jobs:
           python -m pip install yt-dlp==2026.10.21
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
+      - name: Command engine, shell and FFmpeg fixture tests
+        run: node --test tests/engine.test.cjs
       - name: Web UI tests
         run: node tests/ui.cjs
       - name: Real yt-dlp and ffmpeg fixture tests

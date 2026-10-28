@@ -1,10 +1,11 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {execFileSync} = require('node:child_process');
+const {execFileSync,spawnSync} = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const B = require('../engine.js');
+const ffmpegAvailable=spawnSync('ffmpeg',['-version'],{stdio:'ignore'}).status===0;
 const story = n => `https://www.instagram.com/stories/user.${n}/${100+n}?utm_source=abc`;
 const input = (settings={},cuts=[]) => ({links:story(1),settings,cuts});
 test('single Story URL is canonical',()=>assert.deepEqual(B.parseUrls(story(1)),['https://www.instagram.com/stories/user.1/101']));
@@ -69,7 +70,7 @@ test('Frame keeps URL order, engine, cookies, selection and independent-link fai
  assert.match(result.command,/SELECT=\(--playlist-items "2"\)/);assert.match(result.command,/--sleep-requests 3 --sleep-interval 7 --max-sleep-interval 12/);
  assert.ok(result.command.indexOf(urls[0])<result.command.indexOf(urls[1]));assert.match(result.command,/continue/);
 });
-test('Frame command extracts a valid full-resolution PNG per link and leaves no partial output after failure',t=>{
+test('Frame command extracts a valid full-resolution PNG per link and leaves no partial output after failure',{skip:!ffmpegAvailable},t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'frame-builder-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const source=path.join(root,'source.mp4');
