@@ -310,7 +310,7 @@ $('clear').onclick=()=>{
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(e.message); }
   });
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.0.9',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.0',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
