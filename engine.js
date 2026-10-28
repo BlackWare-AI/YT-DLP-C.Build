@@ -7,7 +7,7 @@
   const defaults = Object.freeze({engine:'experimental', mode:'av',
     folder:'$HOME/storage/shared/Download/Apps/YT-DLPTemp',
     cookies:'$HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt',
-    frameTime:'1', frameCustomTime:'',
+    frameTime:'1', frameCustomTime:'', frameOutput:'B',
     requests:'2', min:'6', max:'16', thumb:true, overwrite:true});
   function normalizeSettings(settings, schema) {
     const result = {...defaults, ...settings};
@@ -163,7 +163,8 @@
   }
   function buildFrameCommand(settings, urls, items, min, max, req, cookies) {
     const ytdlp=shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp');
-    const output=shellPath('$HOME/storage/shared/Download/Apps/YT-DLP/Frame');
+    const output=shellPath(settings.folder.trim().replace(/\/+$/, '') + '/Frame');
+    if (!['A','B'].includes(settings.frameOutput)) throw Error('Geçersiz Frame seçeneği.');
     const playlist=items ? 'SELECT=(--playlist-items '+quote(items)+')' : 'SELECT=()';
     const cookieArgs=cookies ? 'COOKIES=(--cookies '+cookies+')' : 'COOKIES=()';
     const lines=[
@@ -179,11 +180,8 @@
       'command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf "%s\\n" "FFmpeg bulunamadı. Termux ortamında pkg install ffmpeg komutuyla kurun." >&2; exit 127; }',
       'mkdir -p "$OUT" || exit 1',
       'URLS=('+urls.map(quote).join(' ')+')',
-      'PRIVATE_TMP=${TMPDIR:-${PREFIX:-$HOME}/tmp}',
-      'mkdir -p "$PRIVATE_TMP" || exit 1',
-      'RUN_TMP=$(mktemp -d "$PRIVATE_TMP/ytdlp-frame.XXXXXX") || exit 1',
-      'STAGE=""',
-      'cleanup() { [[ -z "$STAGE" ]] || rm -f -- "$STAGE"; rm -rf -- "$RUN_TMP"; }',
+      'RUN_TMP=$(mktemp -d "$OUT/.frame.XXXXXX") || exit 1',
+      'cleanup() { rm -rf -- "$RUN_TMP"; }',
       'trap cleanup EXIT',
       'trap "exit 130" HUP INT TERM',
       'FAILURES=0',
@@ -200,25 +198,31 @@
       '  while IFS= read -r -d "" VIDEO; do',
       '    FOUND=1',
       '    TIMES=$(ffprobe -v error -select_streams v:0 -show_entries frame=best_effort_timestamp_time -of csv=p=0 "$VIDEO" 2>/dev/null) || { FAILURES=$((FAILURES+1)); continue; }',
-      "    FRAME_INDEX=$(printf '%s\\n' \"$TIMES\" | awk -v target=\"$FRAME_TIME\" 'NF && $1 != \"N/A\" {if (first == \"\") first=NR-1; if (($1+0) <= (target+0)) chosen=NR-1} END {if (NR==0) exit 1; if (chosen == \"\") chosen=(first == \"\" ? 0 : first); print chosen}') || { FAILURES=$((FAILURES+1)); continue; }",
-      '    PNG_TMP="$ITEM_TMP/frame.png"',
-      '    ffmpeg -nostdin -hide_banner -loglevel error -i "$VIDEO" -map 0:v:0 -vf "select=eq(n\\\\,${FRAME_INDEX})" -frames:v 1 -compression_level 0 -y "$PNG_TMP" 2>/dev/null || { FAILURES=$((FAILURES+1)); continue; }',
-      '    DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$PNG_TMP" 2>/dev/null) || { FAILURES=$((FAILURES+1)); continue; }',
-      '    [[ -s "$PNG_TMP" && "$DIMENSIONS" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || { FAILURES=$((FAILURES+1)); continue; }',
+      "    FRAME_SEEK=$(printf '%s\\n' \"$TIMES\" | awk -F, -v target=\"$FRAME_TIME\" '$1 ~ /^[0-9]+([.][0-9]+)?$/ {if (!seen++) first=$1; t=$1-first; if (t <= target+0.000001) {chosen=t; found=1}} END {if (!found) exit 1; printf \"%.6f\", chosen}') || { FAILURES=$((FAILURES+1)); continue; }",
+      '    JPG="$ITEM_TMP/frame.jpg"',
+      '    rm -f -- "$JPG"',
+      '    ffmpeg -hide_banner -loglevel error -nostdin -i "$VIDEO" -ss "$FRAME_SEEK" -frames:v 1 -q:v 1 -pix_fmt yuvj444p "$JPG" || { FAILURES=$((FAILURES+1)); continue; }',
+      '    ffmpeg -hide_banner -loglevel error -nostdin -xerror -i "$JPG" -frames:v 1 -f null - || { FAILURES=$((FAILURES+1)); continue; }',
+      '    DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$JPG") || { FAILURES=$((FAILURES+1)); continue; }',
+      '    SOURCE_DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$VIDEO") || { FAILURES=$((FAILURES+1)); continue; }',
+      '    [[ -s "$JPG" && "$DIMENSIONS" =~ ^[1-9][0-9]*x[1-9][0-9]*$ && "$DIMENSIONS" == "$SOURCE_DIMENSIONS" ]] || { FAILURES=$((FAILURES+1)); continue; }',
       '    BASE=${VIDEO##*/}; BASE=${BASE%.*}; BASE=${BASE%-[0-9][0-9]}',
       '    SEQUENCE=1',
-      '    while :; do SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$BASE-$SUFFIX.png"; [[ -e "$TARGET" ]] || break; SEQUENCE=$((SEQUENCE+1)); done',
-      '    STAGE=$(mktemp "$OUT/.frame.XXXXXX.png") || { FAILURES=$((FAILURES+1)); continue; }',
-      '    cp -- "$PNG_TMP" "$STAGE" || { rm -f -- "$STAGE"; STAGE=""; FAILURES=$((FAILURES+1)); continue; }',
-      '    STAGE_DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$STAGE" 2>/dev/null) || { rm -f -- "$STAGE"; STAGE=""; FAILURES=$((FAILURES+1)); continue; }',
-      '    [[ "$STAGE_DIMENSIONS" == "$DIMENSIONS" && -s "$STAGE" ]] || { rm -f -- "$STAGE"; STAGE=""; FAILURES=$((FAILURES+1)); continue; }',
+      '    EXT=${VIDEO##*.}',
       '    while :; do',
-      '      mv -n -- "$STAGE" "$TARGET" 2>/dev/null || true',
-      '      [[ -e "$STAGE" ]] || break',
-      '      SEQUENCE=$((SEQUENCE+1)); SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$BASE-$SUFFIX.png"',
+      '      SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$BASE-$SUFFIX.jpg"; CLIP="$OUT/$BASE-$SUFFIX.$EXT"',
+      '      if [[ -e "$TARGET" || -L "$TARGET"' + (settings.frameOutput==='A' ? ' || -e "$CLIP" || -L "$CLIP"' : '') + ' ]]; then SEQUENCE=$((SEQUENCE+1)); continue; fi',
+      '      mv -nT -- "$JPG" "$TARGET" 2>/dev/null || { FAILURES=$((FAILURES+1)); break; }',
+      '      if [[ ! -e "$JPG" ]]; then',
+      ...(settings.frameOutput==='A' ? [
+        '        if ! mv -nT -- "$VIDEO" "$CLIP" 2>/dev/null || [[ -e "$VIDEO" ]]; then rm -f -- "$TARGET"; FAILURES=$((FAILURES+1)); fi'
+      ] : []),
+      '        break',
+      '      fi',
+      '      if [[ ! -e "$TARGET" && ! -L "$TARGET" ]]; then FAILURES=$((FAILURES+1)); break; fi',
+      '      SEQUENCE=$((SEQUENCE+1))',
       '    done',
-      '    STAGE=""',
-      '  done < <(find "$ITEM_TMP" -maxdepth 1 -type f ! -name "*.part" ! -name "*.ytdl" -print0)',
+      '  done < <(find "$ITEM_TMP" -maxdepth 1 -type f ! -name "frame.jpg" ! -name "*.part" ! -name "*.ytdl" -print0)',
       '  [[ $FOUND -eq 1 ]] || FAILURES=$((FAILURES+1))',
       '  rm -rf -- "$ITEM_TMP"',
       'done',
@@ -240,7 +244,7 @@
     const items = urls.some(collectionKind) ? selectionSpec(input.selection) : null;
     const min = numeric(s.min, 'Sleep min'), max = numeric(s.max, 'Sleep max'), req = numeric(s.requests, 'Sleep requests');
     if (max < min) throw Error('Sleep max, minimumdan küçük olamaz.');
-    if(s.mode!=='frame') shellPath(s.folder); // Frame has its own required output folder.
+    shellPath(s.folder);
     const outputSubdir = s.mode === 'audio' ? 'Audio' : s.mode === 'still' ? 'SClip' : 'Video';
     const folder = s.mode==='frame' ? null : shellPath(s.folder.trim().replace(/\/+$/, '') + '/' + outputSubdir);
     const cookies = s.cookies.trim() ? shellPath(s.cookies) : null;

@@ -167,8 +167,8 @@ def main():
                         direct=ydl.process_ie_result(dict(id='9',title='direct',url=f'http://127.0.0.1:{server.server_port}/video.mp4',ext='mp4',vcodec='h264',acodec='none'),download=False)
                         assert direct['id']=='9'
             print('PASS: real yt-dlp item selection: blank/single/before/after/range, four modes, collection playlists and unaffected direct media')
-            # Frame downloads the first second through yt-dlp, extracts one full-resolution PNG,
-            # and removes the temporary video from Termux private storage.
+            # Frame downloads the first second through yt-dlp, extracts one full-resolution JPG,
+            # and removes its temporary working directory even with an invalid TMPDIR.
             frame_home=folder/'frame-home';frame_home.mkdir()
             (frame_home/'cookies.txt').write_text('# Netscape HTTP Cookie File\n127.0.0.1\tFALSE\t/\tFALSE\t1893456000\tsessionid\tframe-fixture\n')
             frame_bin=frame_home/'yt-dlp-story-test'/'bin';frame_bin.mkdir(parents=True)
@@ -179,13 +179,15 @@ def main():
             frame_cmd=run(['node','-e',frame_script,json.dumps(frame_data)],cwd=ROOT,text=True).stdout
             frame_prefix=frame_home/'termux';frame_prefix.mkdir()
             pythonpath=os.pathsep.join(filter(None,[os.environ.get('PYTHONPATH',''),site.getusersitepackages()]))
-            result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'PREFIX':str(frame_prefix),'PYTHONPATH':pythonpath,'FIXTURE_FRAME':'1'},text=True)
-            frame_files=list((frame_home/'storage/shared/Download/Apps/YT-DLP/Frame').glob('*.png'))
+            result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'PREFIX':str(frame_prefix),'PYTHONPATH':pythonpath,'FIXTURE_FRAME':'1','TMPDIR':str(frame_home/'missing'/'tmp')},text=True)
+            frame_files=list((output/'Frame').glob('*.jpg'))
             assert len(frame_files)==1,result.stdout
-            frame_meta=probe(frame_files[0]);assert frame_meta['streams'][0]['codec_name']=='png'
+            frame_meta=probe(frame_files[0]);assert frame_meta['streams'][0]['codec_name']=='mjpeg'
             assert frame_meta['streams'][0]['width']==160 and frame_meta['streams'][0]['height']==120
-            assert not list(frame_prefix.glob('tmp/ytdlp-frame.*'))
-            print('PASS: Frame yt-dlp cookie download, one PNG at source resolution, and temporary video cleanup')
+            assert not list((output/'Frame').glob('.frame.*'))
+            assert not (frame_home/'missing').exists()
+            assert frame_meta['streams'][0]['pix_fmt']=='yuvj444p'
+            print('PASS: Frame yt-dlp cookie download, one JPG at source resolution, and temporary video cleanup')
 
         except subprocess.CalledProcessError as e:
             print(e.stdout); raise
