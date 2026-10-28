@@ -1,7 +1,11 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {execFileSync} = require('node:child_process');
+const {execFileSync,spawnSync} = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const B = require('../engine.js');
+const ffmpegAvailable=spawnSync('ffmpeg',['-version'],{stdio:'ignore'}).status===0;
 const story = n => `https://www.instagram.com/stories/user.${n}/${100+n}?utm_source=abc`;
 const input = (settings={},cuts=[]) => ({links:story(1),settings,cuts});
 test('single Story URL is canonical',()=>assert.deepEqual(B.parseUrls(story(1)),['https://www.instagram.com/stories/user.1/101']));
@@ -43,6 +47,53 @@ test('legacy settings migrate without changing saved meaning',()=>{
 test('StillClip is video only first second; ignores editor',()=>{
  const c=B.build(input({mode:'still'},[{start:'bad',end:'bad'}])).command;
  assert.match(c,/-f "bv"/);assert.match(c,/--download-sections "\*0-1"/);assert.doesNotMatch(c,/bad/);
+});
+test('Frame emits one PNG without saving a video and uses the required output folder',()=>{
+ const c=B.build({links:story(1),settings:{...B.defaults,mode:'frame'},cuts:[{start:'invalid',end:'invalid'}]}).command;
+ assert.match(c,/-f "bv" --skip-download/);assert.match(c,/-f "bv" -g -- "\$URL"/);
+ assert.match(c,/-map 0:v:0 -frames:v 1/);assert.match(c,/vcodec png/);assert.match(c,/Download\/Apps\/YT-DLP\/Frame/);
+ assert.doesNotMatch(c,/\.mp4|--download-sections|\-x(?:\s|$)|filter:v|scale=/);
+ assert.match(c,/--parse-metadata/);assert.match(c,/--cookies/);assert.match(c,/--sleep-requests 2 --sleep-interval 6 --max-sleep-interval 16/);
+ assert.match(c,/\$HOME\/yt-dlp-story-test\/bin\/yt-dlp/);
+});
+test('Frame supports first frame, preset times and validated custom seconds',()=>{
+ const build=frameTime=>B.build({links:story(1),settings:{...B.defaults,mode:'frame',frameTime,frameCustomTime:'2.25'}}).command;
+ assert.match(build('first'),/-frames:v 1/);assert.doesNotMatch(build('first'),/FFMPEG_ARGS\+=\(-ss/);
+ for(const [choice,time] of [['0.5','0.5'],['1','1'],['custom','2.25']]) assert.match(build(choice),new RegExp('FFMPEG_ARGS\\+=\\(-ss "'+time.replace('.','\\.')+'"\\)'));
+ for(const invalid of ['-1','abc','Infinity','']) assert.throws(()=>B.build({links:story(1),settings:{...B.defaults,mode:'frame',frameTime:'custom',frameCustomTime:invalid}}));
+});
+test('Frame keeps URL order, engine, cookies, selection and independent-link failure handling',()=>{
+ const urls=['https://www.instagram.com/user.1','https://www.instagram.com/user.2'];
+ const result=B.build({links:urls.join(''),settings:{...B.defaults,engine:'normal',mode:'frame',cookies:'$HOME/My Cookies/c.txt',requests:'3',min:'7',max:'12'},selection:{only:'2'}});
+ execFileSync('bash',['-n'],{input:result.command});
+ assert.match(result.command,/YTDLP=\(yt-dlp\)/);assert.match(result.command,/COOKIES=\(--cookies "\$HOME\/My Cookies\/c.txt"\)/);
+ assert.match(result.command,/SELECT=\(--playlist-items "2"\)/);assert.match(result.command,/--sleep-requests 3 --sleep-interval 7 --max-sleep-interval 12/);
+ assert.ok(result.command.indexOf(urls[0])<result.command.indexOf(urls[1]));assert.match(result.command,/continue/);
+});
+test('Frame command extracts a valid full-resolution PNG per link and leaves no partial output after failure',{skip:!ffmpegAvailable},t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'frame-builder-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const source=path.join(root,'source.mp4');
+ execFileSync('ffmpeg',['-nostdin','-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=64x48:rate=30:duration=2','-c:v','mpeg4','-q:v','2','-y',source]);
+ const source1fps=path.join(root,'source-1fps.mp4');
+ execFileSync('ffmpeg',['-nostdin','-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=64x48:rate=1:duration=2','-c:v','mpeg4','-q:v','2','-y',source1fps]);
+ const bin=path.join(root,'yt-dlp-story-test','bin');fs.mkdirSync(bin,{recursive:true});
+ fs.writeFileSync(path.join(bin,'yt-dlp'),'#!/usr/bin/env bash\nset -u\nGET=0; URL=""\nfor arg in "$@"; do [[ "$arg" == "-g" ]] && GET=1; URL="$arg"; done\nif [[ $GET -eq 1 ]]; then if [[ "$URL" == *"/bad/"* ]]; then printf "%s\\n" "file:///missing-frame-video.mp4"; elif [[ "$URL" == *"onefps"* ]]; then printf "file://%s\\n" "$FRAME_TEST_SOURCE_1FPS"; else printf "file://%s\\n" "$FRAME_TEST_SOURCE"; fi; else printf "fallback|20261028|1530\\n"; fi\n',{mode:0o755});
+ const links='https://instagram.com/stories/frame.user/123 https://instagram.com/stories/bad/789 https://instagram.com/stories/onefps/234';
+ const command=B.build({links,settings:{...B.defaults,mode:'frame',engine:'experimental',requests:'0',min:'0',max:'0'}}).command;
+ execFileSync('bash',['-n'],{input:command});
+ let status=0;try {execFileSync('bash',['-c',command],{env:{...process.env,HOME:root,FRAME_TEST_SOURCE:source,FRAME_TEST_SOURCE_1FPS:source1fps},stdio:'pipe'});} catch(e) {status=e.status;}
+ assert.equal(status,1,'one failed source reports a partial batch failure after processing all links');
+ const output=path.join(root,'storage/shared/Download/Apps/YT-DLP/Frame');
+ const pngs=fs.readdirSync(output).filter(file=>file.endsWith('.png'));
+ assert.equal(pngs.length,2);assert.ok(pngs.some(file=>file.startsWith('frame.user-20261028-1530-01')));assert.ok(pngs.some(file=>file.startsWith('onefps-20261028-1530-01')));
+ try {execFileSync('bash',['-c',command],{env:{...process.env,HOME:root,FRAME_TEST_SOURCE:source,FRAME_TEST_SOURCE_1FPS:source1fps},stdio:'pipe'});} catch(e) {status=e.status;}
+ assert.equal(status,1);assert.equal(fs.readdirSync(output).filter(file=>file.endsWith('.png')).length,4,'existing PNGs are preserved and later names remain unique');
+ for(const png of fs.readdirSync(output).filter(file=>file.endsWith('.png'))) {
+  const dimensions=execFileSync('ffprobe',['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','csv=s=x:p=0',path.join(output,png)],{encoding:'utf8'}).trim();
+  assert.equal(dimensions,'64x48');
+ }
+ assert.equal(fs.readdirSync(output).filter(file=>file.startsWith('.frame.')).length,0);
 });
 test('three sections are options of one process and use numbered filenames',()=>{
  const r=B.build(input({},[{start:'27',end:'45'},{start:'52',end:'Son'},{start:'75',end:'90'}]));

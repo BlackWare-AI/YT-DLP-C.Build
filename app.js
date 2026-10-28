@@ -55,7 +55,13 @@ function renderButtons() {
     }
   }
   $('cutSection').hidden = !['av','video'].includes(state.settings.mode);
-  $('modeHint').textContent={av:'En iyi görüntü + en iyi ses. Uyumlu kapsayıcıyı yt-dlp seçer.',video:'En iyi sessiz video akışı. Ses eklenmez.',audio:'En iyi ses akışı, kaynak biçimi korunarak çıkarılır.',still:'En iyi sessiz video akışından ilk 1 saniye.'}[state.settings.mode];
+  $('frameSection').hidden = state.settings.mode!=='frame';
+  $('frameCustomTime').hidden = state.settings.frameTime!=='custom';
+  for(const button of $('frameTimes').querySelectorAll('button[data-frame-time]')) {
+    const active=button.dataset.frameTime===state.settings.frameTime;
+    button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  }
+  $('modeHint').textContent={av:'En iyi görüntü + en iyi ses. Uyumlu kapsayıcıyı yt-dlp seçer.',video:'En iyi sessiz video akışı. Ses eklenmez.',audio:'En iyi ses akışı, kaynak biçimi korunarak çıkarılır.',still:'En iyi sessiz video akışından ilk 1 saniye.',frame:'Her bağlantı için seçilen zamandan tek PNG kare çıkarılır; video dosyası kaydedilmez.'}[state.settings.mode];
 }
 function renderCuts() {
   $('cuts').textContent='';
@@ -122,6 +128,7 @@ function preview() {
 }
 function hydrate() {
   $('links').value=state.links; $('newLink').value=state.newLink; $('notes').value=state.notes;
+  $('frameCustomTime').value=state.settings.frameCustomTime || '';
   for(const [key,id] of [['only','itemOnly'],['after','itemAfter'],['before','itemBefore']]) $(id).value=state.selection[key];
   for (const key of ['folder','cookies','requests','min','max','thumb','overwrite'])
     $(key)[['thumb','overwrite'].includes(key)?'checked':'value']=state.settings[key];
@@ -167,7 +174,7 @@ function showHistory() {
     const item=document.createElement('details'); item.className='history-item';
     const summary=document.createElement('summary');
     summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+' bağlantı | '+
-      ({av:'Video + Ses',video:h.snapshot && h.snapshot.schema===2 ? 'Sessiz Video' : 'Video + Ses',audio:'Ses',still:'StillClip'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
+      ({av:'Video + Ses',video:h.snapshot && h.snapshot.schema===2 ? 'Sessiz Video' : 'Video + Ses',audio:'Ses',still:'StillClip',frame:'Frame'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
     item.append(summary);
     const pre=document.createElement('pre'); pre.textContent=historyText([h]); item.append(pre);
     const actions=document.createElement('div'); actions.className='group';
@@ -214,6 +221,11 @@ for (const [id,key] of [['engines','engine'],['modes','mode']]) $(id).onclick=e=
   const b=e.target.closest('button[data-value]'); if (!b) return;
   state.settings[key]=b.dataset.value; save(); renderButtons(); preview();
 };
+$('frameTimes').onclick=e=>{
+  const button=e.target.closest('button[data-frame-time]');if(!button)return;
+  state.settings.frameTime=button.dataset.frameTime;save();renderButtons();preview();
+};
+$('frameCustomTime').oninput=()=>{state.settings.frameCustomTime=$('frameCustomTime').value;save();preview();};
 function appendLinks(text, fromClipboard) {
   const urls=Builder.parseUrls(text,fromClipboard);
   if(!urls.length) throw Error(fromClipboard ? 'Panoda uygun Instagram bağlantısı yok.' : 'Eklemek için bir Instagram bağlantısı girin.');
@@ -263,7 +275,7 @@ $('copy').onclick=async()=>{
     // Require a saved draft before attempting any destructive post-copy change.
     persist();
     await copyText(result.command);
-    const oldHistory=state.history, oldLinks=state.links, oldCuts=state.cuts, oldSelection=state.selection;
+    const oldHistory=state.history, oldLinks=state.links, oldCuts=state.cuts, oldSelection=state.selection, oldSettings=state.settings;
     if (!state.history[0] || state.history[0].command!==result.command) {
       const record={date:new Date().toISOString(),count:result.urls.length,urls:result.urls,
         engine:result.settings.engine,mode:result.settings.mode,command:result.command,snapshot};
@@ -273,9 +285,13 @@ $('copy').onclick=async()=>{
     if(state.links===snapshot.links) state.links='';
     if(JSON.stringify(state.cuts)===JSON.stringify(snapshot.cuts)) state.cuts=[];
     if(JSON.stringify(state.selection)===JSON.stringify(snapshot.selection)) state.selection={only:'',after:'',before:''};
+    if(snapshot.settings.mode==='frame' && state.settings.mode==='frame' &&
+      state.settings.frameTime===snapshot.settings.frameTime && state.settings.frameCustomTime===snapshot.settings.frameCustomTime)
+      state.settings={...state.settings,frameTime:'first',frameCustomTime:''};
     try { persist(); }
     catch(e) {
       state.history=oldHistory; state.links=oldLinks; state.cuts=oldCuts; state.selection=oldSelection;
+      state.settings=oldSettings;
       throw Error('Komut kopyalandı, kayıt tamamlanamadı; bağlantılar korundu: '+e.message);
     }
     hydrate();

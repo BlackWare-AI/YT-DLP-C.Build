@@ -23,4 +23,6 @@ header{padding:12px 2px 8px;margin-top:10px}
 
 .history-heading{flex:1;min-width:0}.history-heading .eyebrow{margin:0 0 9px}.history-tabs{display:flex;gap:6px}.history-tabs button{flex:1;min-height:36px;padding:7px 8px;font-size:11px;white-space:nowrap;background:#0b0b0b;color:#aaa}.history-tabs button.active{background:#202020;border-color:#777;color:#fff}.daily-note-item{background:#090909;border:1px solid #303030;border-radius:12px;padding:12px;margin:10px 0}.daily-note-item summary{font-size:12px;font-weight:600;color:#ccc;cursor:pointer}.daily-note-item pre{margin-top:10px}
 
+.frame-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.frame-time-grid button{background:#0e0e0e;color:#aaa;text-align:left;font-size:12px;min-height:42px}.frame-time-grid button.active{background:#1a1a1a;border-color:#aaa;color:#fff}.frame-time-grid+label+#frameCustomTime{margin-top:10px}
+
 html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavior:none}.notes-dialog,.notes-editor,.notes-editor textarea{overscroll-behavior:contain}
