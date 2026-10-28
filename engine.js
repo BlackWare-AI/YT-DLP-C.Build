@@ -7,6 +7,7 @@
   const defaults = Object.freeze({engine:'experimental', mode:'av',
     folder:'$HOME/storage/shared/Download/Apps/YT-DLPTemp',
     cookies:'$HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt',
+    frameTime:'first', frameCustomTime:'',
     requests:'2', min:'6', max:'16', thumb:true, overwrite:true});
   function normalizeSettings(settings, schema) {
     const result = {...defaults, ...settings};
@@ -152,6 +153,86 @@
     // One counter increment per downloaded section/item, without IDs or mode suffixes.
     return '%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(autonumber)02d.%(ext)s';
   }
+  function frameTimestamp(settings) {
+    const selected=String(settings.frameTime || 'first');
+    if(selected==='first') return null;
+    const raw=selected==='custom' ? String(settings.frameCustomTime || '').trim() : selected;
+    if(!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw)))
+      throw Error('Frame zamanı sıfır veya pozitif bir saniye değeri olmalı.');
+    return String(Number(raw));
+  }
+  function buildFrameCommand(settings, urls, items, min, max, req, cookies) {
+    const ytdlp=settings.engine==='normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp');
+    const output=shellPath('$HOME/storage/shared/Download/Apps/YT-DLP/Frame');
+    const playlist=items ? 'SELECT=(--playlist-items '+quote(items)+')' : 'SELECT=()';
+    const cookieArgs=cookies ? 'COOKIES=(--cookies '+cookies+')' : 'COOKIES=()';
+    const seek=frameTimestamp(settings);
+    const lines=[
+      '#!/usr/bin/env bash',
+      'set -u',
+      'YTDLP=('+ytdlp+')',
+      'COMMON=(--ignore-config --no-playlist)',
+      cookieArgs,
+      'SELECT='+playlist.slice('SELECT='.length),
+      'SLEEP=(--sleep-requests '+req+' --sleep-interval '+min+' --max-sleep-interval '+max+')',
+      'MIN_SLEEP='+min,
+      'MAX_SLEEP='+max,
+      'OUT='+output,
+      'command -v ffmpeg >/dev/null 2>&1 || { printf "%s\\n" "FFmpeg bulunamadı. Termux ortamında pkg install ffmpeg komutuyla kurun." >&2; exit 127; }',
+      'mkdir -p "$OUT" || { printf "%s\\n" "Frame klasörü oluşturulamadı." >&2; exit 1; }',
+      'URLS=('+urls.map(quote).join(' ')+')',
+      'FAILURES=0',
+      'FIRST_URL=1',
+      'for URL in "${URLS[@]}"; do',
+      '  if [[ $FIRST_URL -eq 0 ]]; then sleep "$MIN_SLEEP"; fi',
+      '  FIRST_URL=0',
+      '  META_ARGS=()',
+      '  if [[ "$URL" =~ ^https://www\\.instagram\\.com/stories/([^/?#]+) ]]; then META_ARGS=(--parse-metadata '+quote(storyMetadata)+'); fi',
+      '  META_TEXT=$("${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" "${META_ARGS[@]}" -f "bv" --skip-download --print '+quote('%(channel,uploader,creator|unknown)s|%(upload_date,timestamp>%Y%m%d|undated)s|%(timestamp>%H%M|0000)s')+' -- "$URL") || {',
+      '    printf "Frame metadatası alınamadı: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); continue;',
+      '  }',
+      '  STREAM_TEXT=$("${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" -f "bv" -g -- "$URL") || {',
+      '    printf "Video akışı çözümlenemedi: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); continue;',
+      '  }',
+      '  mapfile -t META_LINES <<< "$META_TEXT"',
+      '  mapfile -t STREAMS <<< "$STREAM_TEXT"',
+      '  ITEM_INDEX=0',
+      '  for STREAM in "${STREAMS[@]}"; do',
+      '    [[ -n "$STREAM" ]] || continue',
+      '    META_LINE=${META_LINES[$ITEM_INDEX]:-${META_LINES[0]:-unknown|undated|0000}}',
+      '    IFS="|" read -r USERNAME FILE_DATE FILE_TIME <<< "$META_LINE"',
+      '    if [[ "$URL" =~ ^https://www\\.instagram\\.com/stories/([^/?#]+) ]]; then USERNAME=${BASH_REMATCH[1]}; fi',
+      '    USERNAME=$(printf "%s" "${USERNAME:-unknown}" | sed "s/[^A-Za-z0-9._-]/_/g")',
+      '    FILE_DATE=${FILE_DATE:-undated}; FILE_TIME=${FILE_TIME:-0000}',
+      '    SEQUENCE=1',
+      '    while :; do',
+      '      SUFFIX=$(printf "%02d" "$SEQUENCE")',
+      '      TARGET="$OUT/$USERNAME-$FILE_DATE-$FILE_TIME-$SUFFIX.png"',
+      '      [[ -e "$TARGET" ]] || break',
+      '      SEQUENCE=$((SEQUENCE+1))',
+      '    done',
+      '    TEMP=$(mktemp "$OUT/.frame.XXXXXX") || { printf "Geçici PNG yolu oluşturulamadı.\\n" >&2; FAILURES=$((FAILURES+1)); ITEM_INDEX=$((ITEM_INDEX+1)); continue; }',
+      '    FFMPEG_ARGS=(-nostdin -hide_banner -loglevel error)',
+      ...(seek===null ? [] : ['    FFMPEG_ARGS+=(-ss '+quote(seek)+')']),
+      '    FFMPEG_LOG=$(ffmpeg "${FFMPEG_ARGS[@]}" -i "$STREAM" -map 0:v:0 -frames:v 1 -y -f image2 -vcodec png "$TEMP" 2>&1)',
+      '    FFMPEG_STATUS=$?',
+      '    if [[ $FFMPEG_STATUS -ne 0 || ! -s "$TEMP" ]]; then',
+      '      rm -f "$TEMP"; printf "%s\\n" "$FFMPEG_LOG" >&2',
+      '      printf "Frame oluşturulamadı: seçilen zaman video süresini aşmış veya akış çözümlenememiş olabilir. Bağlantı: %s\\n" "$URL" >&2',
+      '      FAILURES=$((FAILURES+1)); ITEM_INDEX=$((ITEM_INDEX+1)); continue',
+      '    fi',
+      '    while ! ln "$TEMP" "$TARGET" 2>/dev/null; do',
+      '      if [[ -e "$TARGET" ]]; then SEQUENCE=$((SEQUENCE+1)); SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$USERNAME-$FILE_DATE-$FILE_TIME-$SUFFIX.png"; continue; fi',
+      '      rm -f "$TEMP"; printf "PNG dosyası kaydedilemedi: %s\\n" "$TARGET" >&2; FAILURES=$((FAILURES+1)); break',
+      '    done',
+      '    if [[ -e "$TARGET" && -s "$TARGET" ]]; then printf "Frame kaydedildi: %s\\n" "$TARGET"; rm -f "$TEMP"; fi',
+      '    ITEM_INDEX=$((ITEM_INDEX+1))',
+      '  done',
+      'done',
+      'if [[ $FAILURES -gt 0 ]]; then printf "İşlem tamamlandı; %s öğede hata oluştu.\\n" "$FAILURES" >&2; exit 1; fi'
+    ];
+    return lines.join('\n');
+  }
   function removeUrl(text, target) {
     return String(text).replace(/(?:https?:\/\/|(?:www\.)?instagram\.com\/)(?:(?!https?:\/\/)[^\s<>"“”])+/gi, part=>{
       try { return parseUrls(part).includes(target) ? '' : part; } catch(e) { return part; }
@@ -160,18 +241,19 @@
   function build(input) {
     const s = {...defaults, ...input.settings};
     delete s.audioFormat;
-    if (!['normal','experimental'].includes(s.engine) || !['av','video','audio','still'].includes(s.mode)) throw Error('Geçersiz motor veya biçim.');
+    if (!['normal','experimental'].includes(s.engine) || !['av','video','audio','still','frame'].includes(s.mode)) throw Error('Geçersiz motor veya biçim.');
     const urls = parseUrls(input.links);
     if (!urls.length) throw Error('En az bir Instagram içerik bağlantısı girin.');
     const items = urls.some(collectionKind) ? selectionSpec(input.selection) : null;
     const min = numeric(s.min, 'Sleep min'), max = numeric(s.max, 'Sleep max'), req = numeric(s.requests, 'Sleep requests');
     if (max < min) throw Error('Sleep max, minimumdan küçük olamaz.');
-    shellPath(s.folder); // Validate the base before adding the mode's output subdirectory.
+    if(s.mode!=='frame') shellPath(s.folder); // Frame has its own required output folder.
     const outputSubdir = s.mode === 'audio' ? 'Audio' : s.mode === 'still' ? 'SClip' : 'Video';
-    const folder = shellPath(s.folder.trim().replace(/\/+$/, '') + '/' + outputSubdir);
+    const folder = s.mode==='frame' ? null : shellPath(s.folder.trim().replace(/\/+$/, '') + '/' + outputSubdir);
     const cookies = s.cookies.trim() ? shellPath(s.cookies) : null;
     const cuts = ['av','video'].includes(s.mode) ? (input.cuts || []).map(validateCut) :
       s.mode === 'still' ? [{start:'0',end:'1'}] : [];
+    if(s.mode==='frame') return {command:buildFrameCommand(s,urls,items,min,max,req,cookies),urls,settings:s,cuts:[],selection:input.selection||{},commandCount:1};
     const args = [s.engine === 'normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp'), '--ignore-config', '--no-playlist'];
     if (items) args.push('--playlist-items ' + quote(items));
     if (cookies) args.push('--cookies ' + cookies);

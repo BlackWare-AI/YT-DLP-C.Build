@@ -13,7 +13,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 ## Features
 
 - **Two engines:** choose standard `yt-dlp` or a custom experimental yt-dlp installation.
-- **Download modes:** video with audio, video without audio, audio only, and a one-second StillClip.
+- **Download modes:** video with audio, video without audio, audio only, a one-second StillClip, and **Frame** for one PNG image from a selected video time.
 - **Multiple Instagram links:** accept Stories, `/reel/`, `/p/`, and `/tv/` links on `instagram.com` or `www.instagram.com`. Clean share parameters, split glued links, and remove duplicates without querying the media. Other domains, credentials and spoofed domains are rejected; Story IDs have no length restriction.
 - **Paste from clipboard:** tap the small clipboard button inside the link field to append Instagram links without replacing the current draft. Repeated links are skipped. The clipboard is read only when you tap the button.
 - **Optional item positions:** for Story account lists, profile lists and post carousels, leave the three fields blank or enter an exact ordinal, an exclusive after/before boundary, or both boundaries. The panel sits between links and video cuts and works in every mode. For example, after 3 and before 7 selects items 4–6 via `--playlist-items "4:6"`. Indices are 1-based in the order returned by yt-dlp, not media IDs or guaranteed chronological order. The same selection applies to collection links in the batch; direct Story links retain `--no-playlist`. Profile-post enumeration depends on the selected motor and is currently marked non-working in upstream yt-dlp; Story account URLs use `/stories/username/`.
@@ -58,9 +58,9 @@ The default cookies file is:
 $HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt
 ```
 
-These are independent configurable paths. The app stores the path, not the contents of your cookies file. Outputs go into `Video` (video with/without audio), `Audio` (audio), or `SClip` (StillClip) below the main download directory. yt-dlp reuses existing folders.
+These are independent configurable paths. The app stores the path, not the contents of your cookies file. Outputs go into `Video` (video with/without audio), `Audio` (audio), or `SClip` (StillClip) below the main download directory. Frame PNG files go to `$HOME/storage/shared/Download/Apps/YT-DLP/Frame`. yt-dlp and the generated Frame command reuse or create their output folders.
 
-Commands use safely escaped double-quoted arguments. Only a leading `$HOME` in a path expands; other shell substitutions stay literal. All URLs and repeated `--download-sections` options belong to one yt-dlp invocation. Audio uses `-f "ba/b" -x --audio-format best` with artwork enabled by default. No forced MP3/M4A conversion or `--force-keyframes-at-cuts` is added. Cuts can align with source keyframes rather than exact requested boundaries.
+Commands use safely escaped double-quoted arguments. Only a leading `$HOME` in a path expands; other shell substitutions stay literal. All URLs and repeated `--download-sections` options belong to one yt-dlp invocation. Frame commands resolve each video with the selected yt-dlp engine and cookies, then ask FFmpeg to write one PNG at original dimensions; no temporary video is saved and existing PNGs are never overwritten. First frame, 0.5 seconds, 1 second, or a custom second can be selected. An out-of-range time is reported when the command runs. Audio uses `-f "ba/b" -x --audio-format best` with artwork enabled by default. No forced MP3/M4A conversion or `--force-keyframes-at-cuts` is added. Cuts can align with source keyframes rather than exact requested boundaries.
 
 ## What the app does not do
 
