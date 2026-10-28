@@ -61,7 +61,11 @@ function renderButtons() {
     const active=button.dataset.frameTime===state.settings.frameTime;
     button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
   }
-  $('modeHint').textContent={av:'En iyi görüntü + en iyi ses. Uyumlu kapsayıcıyı yt-dlp seçer.',video:'En iyi sessiz video akışı. Ses eklenmez.',audio:'En iyi ses akışı, kaynak biçimi korunarak çıkarılır.',still:'En iyi sessiz video akışından ilk 1 saniye.',frame:'Her bağlantı için seçilen zamandan tek PNG kare çıkarılır; video dosyası kaydedilmez.'}[state.settings.mode];
+  for(const button of $('frameOutputs').querySelectorAll('button[data-frame-output]')) {
+    const active=button.dataset.frameOutput===state.settings.frameOutput;
+    button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  }
+  $('modeHint').textContent={av:'En iyi görüntü + en iyi ses. Uyumlu kapsayıcıyı yt-dlp seçer.',video:'En iyi sessiz video akışı. Ses eklenmez.',audio:'En iyi ses akışı, kaynak biçimi korunarak çıkarılır.',still:'En iyi sessiz video akışından ilk 1 saniye.',frame:'Her bağlantı için seçilen zamandan tek yüksek kaliteli JPG kare çıkarılır.'}[state.settings.mode];
 }
 function renderCuts() {
   $('cuts').textContent='';
@@ -220,6 +224,10 @@ for (const key of ['folder','cookies','requests','min','max','thumb','overwrite'
 for (const [id,key] of [['engines','engine'],['modes','mode']]) $(id).onclick=e=>{
   const b=e.target.closest('button[data-value]'); if (!b) return;
   state.settings[key]=b.dataset.value; save(); renderButtons(); preview();
+};
+$('frameOutputs').onclick=e=>{
+  const button=e.target.closest('button[data-frame-output]');if(!button)return;
+  state.settings.frameOutput=button.dataset.frameOutput;save();renderButtons();preview();
 };
 $('frameTimes').onclick=e=>{
   const button=e.target.closest('button[data-frame-time]');if(!button)return;

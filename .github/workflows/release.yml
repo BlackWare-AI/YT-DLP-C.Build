@@ -108,6 +108,7 @@ jobs:
         run: |
           if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
             gh release upload "v${RELEASE_VERSION}" "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk" --clobber
+            gh release edit "v${RELEASE_VERSION}" --notes-file .github/release-notes.md
           else
             gh release create "v${RELEASE_VERSION}" "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk" --target "$GITHUB_SHA" --title "YT-DLP Command Builder v${RELEASE_VERSION}" --notes-file .github/release-notes.md --latest
           fi

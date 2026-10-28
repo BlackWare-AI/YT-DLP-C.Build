@@ -48,7 +48,7 @@ test('StillClip is video only first second; ignores editor',()=>{
  const c=B.build(input({mode:'still'},[{start:'bad',end:'bad'}])).command;
  assert.match(c,/-f "bv"/);assert.match(c,/--download-sections "\*0-1"/);assert.doesNotMatch(c,/bad/);
 });
-test('Frame uses experimental yt-dlp section downloads and writes one validated lossless PNG per URL',{skip:!ffmpegAvailable},t=>{
+test('Frame uses experimental yt-dlp section downloads and writes one validated high-quality JPG per URL',{skip:!ffmpegAvailable},t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'frame-builder-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sources={};
  for(const [name,rate,duration] of [['fast',30,2],['short',1,.65]]) {
@@ -59,19 +59,42 @@ test('Frame uses experimental yt-dlp section downloads and writes one validated 
  const bin=path.join(home,'yt-dlp-story-test','bin');fs.mkdirSync(bin,{recursive:true});
  fs.writeFileSync(path.join(bin,'yt-dlp'),`#!/usr/bin/env bash\nset -u\nURL= OUT=\nwhile (($#)); do case "$1" in -P) OUT=$2; shift 2;; --download-sections) [[ "$2" == "*0-1" ]] || exit 9; shift 2;; -f) [[ "$2" == bv ]] || exit 8; shift 2;; --) shift; URL=$1; shift;; *) shift;; esac; done\nprintf '%s\\n' "$URL" >> "$FRAME_YTDLP_LOG"\n[[ "$URL" == *bad* ]] && exit 1\nif [[ "$URL" == *short* ]]; then cp "$FRAME_SOURCE_SHORT" "$OUT/short.user-20261028-1530-01.mp4"; else ffmpeg -nostdin -v error -i "$FRAME_SOURCE_FAST" -t 1 -c copy -y "$OUT/fast.user-20261028-1530-01.mp4"; fi\n`,{mode:0o755});
  const links=['https://instagram.com/stories/fast.user/123','https://instagram.com/stories/bad.user/456','https://instagram.com/stories/short.user/789'].join(' ');
- const command=B.build({links,settings:{...B.defaults,mode:'frame',engine:'normal',cookies:'$HOME/My Cookies/cookies.txt',requests:'7',min:'0',max:'0'}}).command;
+ const command=B.build({links,settings:{...B.defaults,mode:'frame',engine:'normal',folder:'$HOME/My Downloads',cookies:'$HOME/My Cookies/cookies.txt',requests:'7',min:'0',max:'0'}}).command;
  assert.ok(command.includes('YTDLP=("$HOME/yt-dlp-story-test/bin/yt-dlp")'));assert.match(command,/--ignore-config/);assert.match(command,/--no-playlist/);assert.ok(command.includes('--no-overwrites -f "bv" --download-sections "*0-1"'));assert.ok(command.includes('--cookies "$HOME/My Cookies/cookies.txt"'));assert.match(command,/--sleep-requests 7 --sleep-interval 0 --max-sleep-interval 0/);
- assert.doesNotMatch(command,/\s-g(?:\s|$)|--print|python|headers|http_headers|MozillaCookieJar|\bln /i);assert.match(command,/ffprobe/);assert.match(command,/compression_level 0/);assert.match(command,/select=eq/);assert.match(command,/PRIVATE_TMP/);assert.match(command,/trap cleanup EXIT/);
+ assert.doesNotMatch(command,/\s-g(?:\s|$)|--print|python|headers|http_headers|MozillaCookieJar|\bln /i);assert.match(command,/ffprobe/);assert.match(command,/-q:v 1 -pix_fmt yuvj444p/);assert.doesNotMatch(command,/compression_level|select=eq|TMPDIR|\.png|-vf/);assert.match(command,/mktemp -d/);assert.match(command,/trap cleanup EXIT/);
  execFileSync('bash',['-n'],{input:command});
- const env={...process.env,HOME:home,PREFIX:prefix,FRAME_SOURCE_FAST:sources.fast,FRAME_SOURCE_SHORT:sources.short,FRAME_YTDLP_LOG:path.join(root,'ytdlp.log')};
+ const env={...process.env,HOME:home,PREFIX:prefix,TMPDIR:path.join(root,'does-not-exist','tmp'),FRAME_SOURCE_FAST:sources.fast,FRAME_SOURCE_SHORT:sources.short,FRAME_YTDLP_LOG:path.join(root,'ytdlp.log')};
  let status=0, errorText='';try{execFileSync('bash',['-c',command],{env,stdio:'pipe'});}catch(e){status=e.status;errorText=e.stderr?.toString()||'';}
  assert.equal(status,1,'bad URL fails the batch after continuing through later links');
- const output=path.join(home,'storage/shared/Download/Apps/YT-DLP/Frame');let pngs=fs.readdirSync(output).filter(x=>x.endsWith('.png')).sort();assert.deepEqual(pngs,['fast.user-20261028-1530-01.png','short.user-20261028-1530-01.png'],errorText);
- for(const name of pngs){const meta=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',path.join(output,name)],{encoding:'utf8'}));assert.equal(meta.streams.length,1);assert.equal(meta.streams[0].codec_name,'png');assert.deepEqual([meta.streams[0].width,meta.streams[0].height],[64,48]);}
+ const output=path.join(home,'My Downloads/Frame');let jpgs=fs.readdirSync(output).filter(x=>x.endsWith('.jpg')).sort();assert.deepEqual(jpgs,['fast.user-20261028-1530-01.jpg','short.user-20261028-1530-01.jpg'],errorText);
+ for(const name of jpgs){const meta=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',path.join(output,name)],{encoding:'utf8'}));assert.equal(meta.streams.length,1);assert.equal(meta.streams[0].codec_name,'mjpeg');assert.equal(meta.streams[0].pix_fmt,'yuvj444p');assert.deepEqual([meta.streams[0].width,meta.streams[0].height],[64,48]);}
  assert.equal(fs.readFileSync(env.FRAME_YTDLP_LOG,'utf8').trim().split('\n').length,3,'all links ran, including after a failure');
- assert.deepEqual(fs.readdirSync(path.join(prefix,'tmp')),[],'private temporary videos are removed');assert.deepEqual(fs.readdirSync(output).filter(x=>x.startsWith('.frame.')),[],'staged PNGs are removed');
+ assert.equal(fs.existsSync(env.TMPDIR),false,'no dependency on missing TMPDIR');assert.deepEqual(fs.readdirSync(output).filter(x=>x.startsWith('.frame.')),[],'staged JPGs are removed');
  try{execFileSync('bash',['-c',command],{env,stdio:'pipe'});}catch(e){status=e.status;}assert.equal(status,1);
- pngs=fs.readdirSync(output).filter(x=>x.endsWith('.png'));assert.equal(pngs.length,4);assert.ok(pngs.includes('fast.user-20261028-1530-02.png'));assert.ok(pngs.includes('short.user-20261028-1530-02.png'));
+ jpgs=fs.readdirSync(output).filter(x=>x.endsWith('.jpg'));assert.equal(jpgs.length,4);assert.ok(jpgs.includes('fast.user-20261028-1530-02.jpg'));assert.ok(jpgs.includes('short.user-20261028-1530-02.jpg'));
+ const before=fs.readFileSync(path.join(output,'fast.user-20261028-1530-01.jpg'));
+ const build=settings=>B.build({links:'https://instagram.com/stories/fast.user/123',settings:{mode:'frame',folder:'$HOME/My Downloads',cookies:'',min:'0',max:'0',requests:'0',...settings}}).command;
+ const a=build({frameOutput:'A',frameTime:'0.5'});execFileSync('bash',['-n'],{input:a});
+ execFileSync('bash',['-c',a],{env,stdio:'pipe'});
+ assert.ok(fs.existsSync(path.join(output,'fast.user-20261028-1530-03.mp4')));
+ const expected=path.join(root,'expected.jpg');
+ execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-nostdin','-i',sources.fast,'-ss','0.5','-frames:v','1','-q:v','1','-pix_fmt','yuvj444p',expected]);
+ assert.deepEqual(fs.readFileSync(path.join(output,'fast.user-20261028-1530-03.jpg')),fs.readFileSync(expected),'selected frame is encoded only once at requested quality');
+ assert.deepEqual(fs.readFileSync(path.join(output,'fast.user-20261028-1530-01.jpg')),before,'existing output bytes preserved');
+ const tools=path.join(root,'tools');fs.mkdirSync(tools);
+ const realFfmpeg=execFileSync('which',['ffmpeg'],{encoding:'utf8'}).trim();
+ const failureEnv={...env,PATH:tools+path.delimiter+env.PATH};
+ for(const mode of ['fail','empty','corrupt']) {
+  fs.writeFileSync(path.join(tools,'ffmpeg'),'#!/usr/bin/env bash\nif [[ " $* " == *" -q:v 1 "* ]]; then\n case "$FAIL_MODE" in fail) printf partial > "${@: -1}"; exit 1;; empty) exit 0;; corrupt) printf broken > "${@: -1}"; exit 0;; esac\nfi\nexec '+B.quote(realFfmpeg)+' "$@"\n',{mode:0o755});
+  const saved=fs.readdirSync(output).sort();
+  const result=spawnSync('bash',['-c',build({})],{env:{...failureEnv,FAIL_MODE:mode}});
+  assert.equal(result.status,1,mode+' must fail');
+  assert.deepEqual(fs.readdirSync(output).sort(),saved,mode+' leaves no failed JPG or temporary files');
+ }
+ fs.writeFileSync(path.join(tools,'ffmpeg'),'#!/usr/bin/env bash\nif [[ " $* " == *" -q:v 1 "* ]]; then kill -TERM "$PPID"; exit 1; fi\nexec '+B.quote(realFfmpeg)+' "$@"\n',{mode:0o755});
+ const saved=fs.readdirSync(output).sort();
+ assert.notEqual(spawnSync('bash',['-c',build({})],{env:failureEnv}).status,0);
+ assert.deepEqual(fs.readdirSync(output).sort(),saved,'signal cleans only the temporary work folder');
 });
 test('Frame uses its experimental engine and validates frame times inside the downloaded second',()=>{
  const build=(frameTime,frameCustomTime='')=>B.build({links:story(1),settings:{...B.defaults,mode:'frame',engine:'normal',frameTime,frameCustomTime}}).command;
