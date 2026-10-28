@@ -7,12 +7,14 @@
   const defaults = Object.freeze({engine:'experimental', mode:'av',
     folder:'$HOME/storage/shared/Download/Apps/YT-DLPTemp',
     cookies:'$HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt',
-    frameTime:'1', frameCustomTime:'', frameOutput:'B',
+    frameTime:'0.5', frameCustomTime:'',
     requests:'2', min:'6', max:'16', thumb:true, overwrite:true});
   function normalizeSettings(settings, schema) {
     const result = {...defaults, ...settings};
     if (schema !== 2 && result.mode === 'video') result.mode = 'av';
     delete result.audioFormat;
+    delete result.frameOutput;
+    if (!['0.5','custom'].includes(result.frameTime)) result.frameTime='0.5';
     return result;
   }
   // Escape every expansion-sensitive character inside a double-quoted argument.
@@ -154,81 +156,108 @@
     return '%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(autonumber)02d.%(ext)s';
   }
   function frameTimestamp(settings) {
-    const selected=String(settings.frameTime || '1');
-    if(selected==='first') return '0';
-    const raw=selected==='custom' ? String(settings.frameCustomTime || '').trim() : selected;
+    const selected=String(settings.frameTime || '0.5');
+    const raw=selected==='custom' ? String(settings.frameCustomTime || '').trim() : '0.5';
     if(!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw)) || Number(raw)>1)
       throw Error('Frame zamanı 0 ile 1 saniye arasında olmalı.');
     return String(Number(raw));
   }
   function buildFrameCommand(settings, urls, items, min, max, req, cookies) {
-    const ytdlp=shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp');
-    const output=shellPath(settings.folder.trim().replace(/\/+$/, '') + '/Frame');
-    if (!['A','B'].includes(settings.frameOutput)) throw Error('Geçersiz Frame seçeneği.');
-    const playlist=items ? 'SELECT=(--playlist-items '+quote(items)+')' : 'SELECT=()';
-    const cookieArgs=cookies ? 'COOKIES=(--cookies '+cookies+')' : 'COOKIES=()';
+    const target=frameTimestamp(settings);
+    // Keep every improving candidate, then take the last one: the global nearest frame.
+    // Selection, timestamp normalization and reverse leave source pixels untouched.
+    const filter="setpts=PTS-STARTPTS,select='isnan(prev_selected_t)+lt(abs(t-"+target+"),abs(prev_selected_t-"+target+"))',reverse,select='eq(n,0)'";
     const lines=[
-      '#!/usr/bin/env bash',
-      'set -u',
-      'YTDLP=('+ytdlp+')',
-      'COMMON=(--ignore-config --no-playlist)',
-      cookieArgs,
-      playlist,
+      "#!/usr/bin/env bash",
+      "set -u",
+      'YTDLP=('+shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp')+')',
+      "COMMON=(--ignore-config --no-playlist)",
+      cookies ? 'COOKIES=(--cookies '+cookies+')' : 'COOKIES=()',
+      items ? 'SELECT=(--playlist-items '+quote(items)+')' : 'SELECT=()',
       'SLEEP=(--sleep-requests '+req+' --sleep-interval '+min+' --max-sleep-interval '+max+')',
-      'OUT='+output,
-      'FRAME_TIME='+quote(frameTimestamp(settings)),
-      'command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf "%s\\n" "FFmpeg bulunamadı. Termux ortamında pkg install ffmpeg komutuyla kurun." >&2; exit 127; }',
-      'mkdir -p "$OUT" || exit 1',
+      'OUT='+shellPath('$HOME/storage/shared/Download/Apps/YT-DLP/Frame'),
+      'FILTER='+quote(filter),
       'URLS=('+urls.map(quote).join(' ')+')',
-      'RUN_TMP=$(mktemp -d "$OUT/.frame.XXXXXX") || exit 1',
-      'cleanup() { rm -rf -- "$RUN_TMP"; }',
-      'trap cleanup EXIT',
-      'trap "exit 130" HUP INT TERM',
-      'FAILURES=0',
-      'FIRST_URL=1',
-      'for URL in "${URLS[@]}"; do',
+      "command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf '%s\\n' 'FFmpeg bulunamadı. Termux: pkg install ffmpeg' >&2; exit 127; }",
+      "mkdir -p -- \"$OUT\" || exit 1",
+      "PRIVATE_BASE=${PREFIX:-$HOME/.cache}/tmp",
+      "if ! mkdir -p -- \"$PRIVATE_BASE\" 2>/dev/null || [[ ! -w \"$PRIVATE_BASE\" ]]; then",
+      "  PRIVATE_BASE=\"$HOME/.cache/yt-dlp-frame\"",
+      "  mkdir -p -- \"$PRIVATE_BASE\" || exit 1",
+      "fi",
+      "RUN_TMP=$(mktemp -d \"$PRIVATE_BASE/ytdlp-frame.XXXXXX\") || exit 1",
+      "PUBLISH_TMP=\"\"",
+      "cleanup() {",
+      "  [[ -z \"$PUBLISH_TMP\" ]] || rm -rf -- \"$PUBLISH_TMP\"",
+      "  rm -rf -- \"$RUN_TMP\"",
+      "}",
+      "trap cleanup EXIT",
+      "trap 'exit 130' HUP INT TERM",
+      "valid_jpg() {",
+      "  [[ -s \"$JPG\" ]] || return 1",
+      "  ffmpeg -hide_banner -loglevel error -nostdin -y -xerror -i \"$JPG\" -frames:v 1 -f null - >/dev/null 2>&1 || return 1",
+      "  DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 \"$JPG\" 2>/dev/null) || return 1",
+      "  [[ \"$DIMENSIONS\" == \"$SOURCE_DIMENSIONS\" ]]",
+      "}",
+      "SUCCESS=0",
+      "FAILURES=0",
+      "ERRORS=()",
+      "FIRST_URL=1",
+      "for URL in \"${URLS[@]}\"; do",
       '  if [[ $FIRST_URL -eq 0 ]]; then sleep '+min+'; fi',
-      '  FIRST_URL=0',
-      '  ITEM_TMP=$(mktemp -d "$RUN_TMP/item.XXXXXX") || { FAILURES=$((FAILURES+1)); continue; }',
-      '  META_ARGS=()',
+      "  FIRST_URL=0",
+      "  ITEM_TMP=$(mktemp -d \"$RUN_TMP/item.XXXXXX\") || { FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — geçici klasör oluşturulamadı\"); continue; }",
+      "  META_ARGS=()",
       '  if [[ "$URL" =~ ^https://www\\.instagram\\.com/stories/([^/?#]+) ]]; then META_ARGS=(--parse-metadata '+quote(storyMetadata)+'); fi',
       '  "${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" "${META_ARGS[@]}" --no-overwrites -f "bv" --download-sections "*0-1" -P "$ITEM_TMP" -o '+quote(template())+' -- "$URL"',
-      '  if [[ $? -ne 0 ]]; then FAILURES=$((FAILURES+1)); rm -rf -- "$ITEM_TMP"; continue; fi',
-      '  FOUND=0',
-      '  while IFS= read -r -d "" VIDEO; do',
-      '    FOUND=1',
-      '    TIMES=$(ffprobe -v error -select_streams v:0 -show_entries frame=best_effort_timestamp_time -of csv=p=0 "$VIDEO" 2>/dev/null) || { FAILURES=$((FAILURES+1)); continue; }',
-      "    FRAME_SEEK=$(printf '%s\\n' \"$TIMES\" | awk -F, -v target=\"$FRAME_TIME\" '$1 ~ /^[0-9]+([.][0-9]+)?$/ {if (!seen++) first=$1; t=$1-first; if (t <= target+0.000001) {chosen=t; found=1}} END {if (!found) exit 1; printf \"%.6f\", chosen}') || { FAILURES=$((FAILURES+1)); continue; }",
-      '    JPG="$ITEM_TMP/frame.jpg"',
-      '    rm -f -- "$JPG"',
-      '    ffmpeg -hide_banner -loglevel error -nostdin -i "$VIDEO" -ss "$FRAME_SEEK" -frames:v 1 -q:v 1 -pix_fmt yuvj444p "$JPG" || { FAILURES=$((FAILURES+1)); continue; }',
-      '    ffmpeg -hide_banner -loglevel error -nostdin -xerror -i "$JPG" -frames:v 1 -f null - || { FAILURES=$((FAILURES+1)); continue; }',
-      '    DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$JPG") || { FAILURES=$((FAILURES+1)); continue; }',
-      '    SOURCE_DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$VIDEO") || { FAILURES=$((FAILURES+1)); continue; }',
-      '    [[ -s "$JPG" && "$DIMENSIONS" =~ ^[1-9][0-9]*x[1-9][0-9]*$ && "$DIMENSIONS" == "$SOURCE_DIMENSIONS" ]] || { FAILURES=$((FAILURES+1)); continue; }',
-      '    BASE=${VIDEO##*/}; BASE=${BASE%.*}; BASE=${BASE%-[0-9][0-9]}',
-      '    SEQUENCE=1',
-      '    EXT=${VIDEO##*.}',
-      '    while :; do',
-      '      SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$BASE-$SUFFIX.jpg"; CLIP="$OUT/$BASE-$SUFFIX.$EXT"',
-      '      if [[ -e "$TARGET" || -L "$TARGET"' + (settings.frameOutput==='A' ? ' || -e "$CLIP" || -L "$CLIP"' : '') + ' ]]; then SEQUENCE=$((SEQUENCE+1)); continue; fi',
-      '      mv -nT -- "$JPG" "$TARGET" 2>/dev/null || { FAILURES=$((FAILURES+1)); break; }',
-      '      if [[ ! -e "$JPG" ]]; then',
-      ...(settings.frameOutput==='A' ? [
-        '        if ! mv -nT -- "$VIDEO" "$CLIP" 2>/dev/null || [[ -e "$VIDEO" ]]; then rm -f -- "$TARGET"; FAILURES=$((FAILURES+1)); fi'
-      ] : []),
-      '        break',
-      '      fi',
-      '      if [[ ! -e "$TARGET" && ! -L "$TARGET" ]]; then FAILURES=$((FAILURES+1)); break; fi',
-      '      SEQUENCE=$((SEQUENCE+1))',
-      '    done',
-      '  done < <(find "$ITEM_TMP" -maxdepth 1 -type f ! -name "frame.jpg" ! -name "*.part" ! -name "*.ytdl" -print0)',
-      '  [[ $FOUND -eq 1 ]] || FAILURES=$((FAILURES+1))',
-      '  rm -rf -- "$ITEM_TMP"',
-      'done',
-      'if [[ $FAILURES -gt 0 ]]; then exit 1; fi'
+      "  if [[ $? -ne 0 ]]; then",
+      "    FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — indirme başarısız\")",
+      "    rm -rf -- \"$ITEM_TMP\"; continue",
+      "  fi",
+      "  SAVED=0",
+      "  REASON='video bulunamadı'",
+      "  for VIDEO in \"$ITEM_TMP\"/*; do",
+      "    [[ -f \"$VIDEO\" ]] || continue",
+      "    case \"$VIDEO\" in *.part|*.ytdl|*.jpg|*.json) continue;; esac",
+      "    REASON='kaynak video okunamadı'",
+      "    SOURCE_DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 \"$VIDEO\" 2>/dev/null) || continue",
+      "    [[ \"$SOURCE_DIMENSIONS\" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || continue",
+      "    JPG=\"$ITEM_TMP/frame.jpg\"",
+      "    REASON='JPG oluşturulamadı veya doğrulanamadı'",
+      "    if ! ffmpeg -hide_banner -loglevel error -nostdin -y -i \"$VIDEO\" -map 0:v:0 -vf \"$FILTER\" -frames:v 1 -q:v 1 -pix_fmt yuvj444p \"$JPG\" || ! valid_jpg; then",
+      "      rm -f -- \"$JPG\"",
+      "      ffmpeg -hide_banner -loglevel error -nostdin -y -i \"$VIDEO\" -map 0:v:0 -frames:v 1 -q:v 1 -pix_fmt yuvj444p \"$JPG\" || continue",
+      "      valid_jpg || continue",
+      "    fi",
+      "    BASE=${VIDEO##*/}; BASE=${BASE%.*}; BASE=${BASE%-*}",
+      "    REASON='JPG hedef klasöre aktarılamadı'",
+      "    PUBLISH_TMP=$(mktemp -d \"$OUT/.frame-publish.XXXXXX\") || continue",
+      "    STAGED=\"$PUBLISH_TMP/frame.jpg\"",
+      "    if cp -- \"$JPG\" \"$STAGED\" && cmp -s -- \"$JPG\" \"$STAGED\"; then",
+      "      SEQUENCE=1",
+      "      while :; do",
+      "        SUFFIX=$(printf '%02d' \"$SEQUENCE\"); TARGET=\"$OUT/$BASE-$SUFFIX.jpg\"",
+      "        if [[ -e \"$TARGET\" || -L \"$TARGET\" ]]; then SEQUENCE=$((SEQUENCE+1)); continue; fi",
+      "        mv -nT -- \"$STAGED\" \"$TARGET\" 2>/dev/null || break",
+      "        if [[ ! -e \"$STAGED\" ]]; then SAVED=1; SUCCESS=$((SUCCESS+1)); break; fi",
+      "        [[ -e \"$TARGET\" || -L \"$TARGET\" ]] || break",
+      "        SEQUENCE=$((SEQUENCE+1))",
+      "      done",
+      "    fi",
+      "    rm -rf -- \"$PUBLISH_TMP\"; PUBLISH_TMP=\"\"",
+      "    [[ $SAVED -eq 0 ]] || break",
+      "  done",
+      "  if [[ $SAVED -eq 0 ]]; then FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — $REASON\"); fi",
+      "  rm -rf -- \"$ITEM_TMP\"",
+      "done",
+      "cleanup",
+      "trap - EXIT HUP INT TERM",
+      "printf 'Başarılı JPG: %d | Başarısız JPG: %d\\n' \"$SUCCESS\" \"$FAILURES\"",
+      "if [[ ${#ERRORS[@]} -gt 0 ]]; then printf '%s\\n' \"${ERRORS[@]}\" >&2; fi",
+      "[[ $FAILURES -eq 0 ]]"
     ];
-    return lines.join('\n');
+    // A single, isolated Bash invocation also completes cleanup when pasted into Termux.
+    return "bash -c '"+lines.join('\n').replace(/'/g,"'\\''")+"'";
   }
   function removeUrl(text, target) {
     return String(text).replace(/(?:https?:\/\/|(?:www\.)?instagram\.com\/)(?:(?!https?:\/\/)[^\s<>"“”])+/gi, part=>{

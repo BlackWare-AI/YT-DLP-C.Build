@@ -42,16 +42,16 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
     }
     private void await() throws Exception { boolean completed=done.await(30,TimeUnit.SECONDS);assertTrue(status.get(),completed); }
     private JSONObject metadata(String digest) throws Exception {
-        return new JSONObject().put("tag_name","v1.1.1").put("assets",new JSONArray().put(new JSONObject()
-            .put("name","YT-DLP-Command-Builder-v1.1.1.apk")
-            .put("browser_download_url","https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v1.1.1/YT-DLP-Command-Builder-v1.1.1.apk")
+        return new JSONObject().put("tag_name","v1.1.2").put("assets",new JSONArray().put(new JSONObject()
+            .put("name","YT-DLP-Command-Builder-v1.1.2.apk")
+            .put("browser_download_url","https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v1.1.2/YT-DLP-Command-Builder-v1.1.2.apk")
             .put("digest","sha256:"+digest).put("size",123)));
     }
     public void testMetadataAndHostsAreRestricted() throws Exception {
         String digest=new String(new char[64]).replace('\0','a');
         JSONObject json=metadata(digest);
         assertNotNull(UpdateController.parse(json));
-        assertEquals(0,UpdateController.compareVersions("1.1.1","1.1.1"));
+        assertEquals(0,UpdateController.compareVersions("1.1.2","1.1.2"));
         assertTrue(UpdateController.compareVersions("1.10.0","1.9.99")>0);
         assertTrue(UpdateController.compareVersions("1.0.9","1.1.0")<0);
         JSONObject asset=json.getJSONArray("assets").getJSONObject(0);
@@ -76,7 +76,7 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
         setup(address->{throw new java.io.IOException("offline");},"Güncelleme kontrol edilemedi.");
         main(()->controller.check());await();getInstrumentation().waitForIdleSync();controller.close();
         setup(address->new ByteArrayInputStream(new byte[]{1,2,3}),"Güncelleme indirilemedi");
-        UpdateController.Release release=new UpdateController.Release("1.1.1","fixture",new String(new char[64]).replace('\0','0'),3);
+        UpdateController.Release release=new UpdateController.Release("1.1.2","fixture",new String(new char[64]).replace('\0','0'),3);
         main(()->controller.download(release));await();getInstrumentation().waitForIdleSync();
         getInstrumentation().waitForIdleSync();
         assertFalse(UpdateApkProvider.apk(activity).exists());
@@ -85,7 +85,7 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
     public void testVerifiedApkOpensInstallerAndProviderIsReadOnly() throws Exception {
         launch();permission=true;
         setup(address->new FileInputStream(installed()),"Kurulumu Android ekranında");
-        UpdateController.Release release=new UpdateController.Release("1.1.1","fixture",UpdateController.sha256(installed()),installed().length());
+        UpdateController.Release release=new UpdateController.Release("1.1.2","fixture",UpdateController.sha256(installed()),installed().length());
         controller.validatePackage(installed());
         IntentFilter filter=new IntentFilter(Intent.ACTION_VIEW);filter.addDataType(UpdateApkProvider.MIME);filter.addDataScheme("content");
         Instrumentation.ActivityMonitor monitor=getInstrumentation().addMonitor(filter,new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
@@ -108,7 +108,7 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
     public void testUnknownSourcePermissionCanBeDeclined() throws Exception {
         launch();permission=false;
         setup(address->new FileInputStream(installed()),"Yükleme iznini açıp");
-        UpdateController.Release release=new UpdateController.Release("1.1.1","fixture",UpdateController.sha256(installed()),installed().length());
+        UpdateController.Release release=new UpdateController.Release("1.1.2","fixture",UpdateController.sha256(installed()),installed().length());
         IntentFilter filter=new IntentFilter(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);filter.addDataScheme("package");
         Instrumentation.ActivityMonitor monitor=getInstrumentation().addMonitor(filter,new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
         try {
