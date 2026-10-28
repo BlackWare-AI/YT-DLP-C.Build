@@ -202,7 +202,8 @@ function showNotesDailyHistory() {
     const section=document.createElement('details');section.className='daily-note-item';
     const title=document.createElement('summary');
     const [year,month,day]=record.date.split('-').map(Number);
-    title.textContent=new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    title.textContent=new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+
+      ' · '+Builder.countNoteLinks(record.notes||'')+' bağlantı';
     const body=document.createElement('pre');body.textContent=record.notes;
     section.append(title,body);root.append(section);
   }

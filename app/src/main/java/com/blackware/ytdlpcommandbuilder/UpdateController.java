@@ -2,6 +2,9 @@ package com.blackware.ytdlpcommandbuilder;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -9,6 +12,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.net.Uri;
 import android.provider.Settings;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
@@ -95,13 +105,51 @@ final class UpdateController {
                 }
                 ui(() -> {
                     busy=false; status.show("Güncelleme mevcut: "+release.version,false);
-                    offerDialog=new AlertDialog.Builder(activity).setTitle("Güncelleme mevcut")
-                        .setMessage("GitHub sürümü: "+release.version+"\nAPK indirilip Android yükleme ekranı açılacak.")
-                        .setNegativeButton("Daha sonra",null)
-                        .setPositiveButton("İndir ve yükle",(d,w)->download(release)).show();
+                    showUpdateOffer(release);
                 });
             } catch (Exception e) { finish("Güncelleme kontrol edilemedi. İnternet bağlantısını kontrol edip yeniden deneyin."); }
         });
+    }
+    private int dp(float value) { return (int)(value*activity.getResources().getDisplayMetrics().density+0.5f); }
+    private GradientDrawable surface(int color, int stroke) {
+        GradientDrawable shape=new GradientDrawable(); shape.setColor(color); shape.setCornerRadius(dp(12));
+        if (stroke!=Color.TRANSPARENT) shape.setStroke(dp(1),stroke);
+        return shape;
+    }
+    private TextView label(String text, float size, int color, boolean bold) {
+        TextView view=new TextView(activity); view.setText(text); view.setTextSize(TypedValue.COMPLEX_UNIT_SP,size);
+        view.setTextColor(color); view.setGravity(Gravity.CENTER_VERTICAL);
+        if (bold) view.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        return view;
+    }
+    private void showUpdateOffer(Release release) {
+        LinearLayout card=new LinearLayout(activity); card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20),dp(18),dp(20),dp(14)); card.setBackground(surface(Color.rgb(9,9,9),Color.rgb(48,48,48)));
+        TextView eyebrow=label("GÜNCELLEME",10,Color.rgb(130,130,130),true);
+        TextView title=label("Güncelleme mevcut",20,Color.rgb(241,241,241),true);
+        TextView message=label("GitHub sürümü: "+release.version+"\nAPK indirilip Android yükleme ekranı açılacak.",14,Color.rgb(160,160,160),false);
+        message.setGravity(Gravity.TOP); message.setLineSpacing(dp(3),1f);
+        LinearLayout.LayoutParams titleParams=new LinearLayout.LayoutParams(-1,-2); titleParams.topMargin=dp(7);
+        LinearLayout.LayoutParams messageParams=new LinearLayout.LayoutParams(-1,-2); messageParams.topMargin=dp(10);
+        card.addView(eyebrow,new LinearLayout.LayoutParams(-1,-2)); card.addView(title,titleParams); card.addView(message,messageParams);
+        LinearLayout actions=new LinearLayout(activity); actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END|Gravity.CENTER_VERTICAL); actions.setPadding(0,dp(18),0,0);
+        Button later=new Button(activity); later.setText("Daha sonra"); later.setAllCaps(false); later.setTextSize(TypedValue.COMPLEX_UNIT_SP,13);
+        later.setTextColor(Color.rgb(190,190,190)); later.setBackground(surface(Color.rgb(17,17,17),Color.rgb(55,55,55)));
+        Button install=new Button(activity); install.setText("İndir ve yükle"); install.setAllCaps(false); install.setTextSize(TypedValue.COMPLEX_UNIT_SP,13);
+        install.setTypeface(Typeface.DEFAULT,Typeface.BOLD); install.setTextColor(Color.rgb(245,245,245));
+        install.setBackground(surface(Color.rgb(32,32,32),Color.rgb(80,80,80)));
+        LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(-2,dp(44)); buttonParams.leftMargin=dp(8);
+        actions.addView(later,buttonParams); actions.addView(install,buttonParams); card.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+        AlertDialog dialog=new AlertDialog.Builder(activity).setView(card).create(); offerDialog=dialog;
+        later.setOnClickListener(v->dialog.dismiss()); install.setOnClickListener(v->{dialog.dismiss();download(release);});
+        dialog.setCanceledOnTouchOutside(true); dialog.show();
+        Window window=dialog.getWindow();
+        if (window!=null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            int width=activity.getResources().getDisplayMetrics().widthPixels-dp(40);
+            window.setLayout(width,WindowManager.LayoutParams.WRAP_CONTENT);
+        }
     }
     static Release parse(JSONObject json) throws Exception {
         if (json.optBoolean("draft") || json.optBoolean("prerelease")) return null;
