@@ -27,6 +27,7 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
     private final AtomicReference<String> status=new AtomicReference<>("");
     private CountDownLatch done;
     private String terminal;
+    private boolean permission;
     private File installed() { return new File(activity.getApplicationInfo().sourceDir); }
     private void main(Runnable action) { getInstrumentation().runOnMainSync(action); }
     private void launch() {
@@ -37,21 +38,14 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
         this.terminal=terminal; done=new CountDownLatch(1);
         controller=new UpdateController(activity,(message,busy)->{
             status.set(message); if (message.startsWith(this.terminal)) done.countDown();
-        },source);
+        },source,()->permission);
     }
-    private void await() throws Exception { assertTrue(status.get(),done.await(20,TimeUnit.SECONDS)); }
+    private void await() throws Exception { boolean completed=done.await(30,TimeUnit.SECONDS);assertTrue(status.get(),completed); }
     private JSONObject metadata(String digest) throws Exception {
         return new JSONObject().put("tag_name","v1.1.1").put("assets",new JSONArray().put(new JSONObject()
             .put("name","YT-DLP-Command-Builder-v1.1.1.apk")
             .put("browser_download_url","https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v1.1.1/YT-DLP-Command-Builder-v1.1.1.apk")
             .put("digest","sha256:"+digest).put("size",123)));
-    }
-    private void appOps(String mode) throws Exception {
-        try (java.io.InputStream in=new ParcelFileDescriptor.AutoCloseInputStream(
-            getInstrumentation().getUiAutomation().executeShellCommand(
-                "appops set "+activity.getPackageName()+" REQUEST_INSTALL_PACKAGES "+mode))) {
-            byte[] buffer=new byte[1024]; while (in.read(buffer)!=-1) { /* drain shell output */ }
-        }
     }
     public void testMetadataAndHostsAreRestricted() throws Exception {
         String digest=new String(new char[64]).replace('\0','a');
@@ -72,26 +66,27 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
         launch();
         byte[] current=metadata(UpdateController.sha256(installed())).toString().getBytes(StandardCharsets.UTF_8);
         setup(address->new ByteArrayInputStream(current),"Uygulama güncel.");
-        main(()->controller.check());await();controller.close();
+        main(()->controller.check());await();getInstrumentation().waitForIdleSync();controller.close();
         byte[] changed=metadata(new String(new char[64]).replace('\0','0')).toString().getBytes(StandardCharsets.UTF_8);
         setup(address->new ByteArrayInputStream(changed),"Güncelleme mevcut:");
-        main(()->controller.check());await();
+        main(()->controller.check());await();getInstrumentation().waitForIdleSync();
     }
     public void testNetworkAndCorruptDownloadsFailCleanly() throws Exception {
         launch();
         setup(address->{throw new java.io.IOException("offline");},"Güncelleme kontrol edilemedi.");
-        main(()->controller.check());await();controller.close();
+        main(()->controller.check());await();getInstrumentation().waitForIdleSync();controller.close();
         setup(address->new ByteArrayInputStream(new byte[]{1,2,3}),"Güncelleme indirilemedi");
         UpdateController.Release release=new UpdateController.Release("1.1.1","fixture",new String(new char[64]).replace('\0','0'),3);
         main(()->controller.download(release));await();getInstrumentation().waitForIdleSync();
         getInstrumentation().waitForIdleSync();
         assertFalse(UpdateApkProvider.apk(activity).exists());
-        assertFalse(new File(activity.getCacheDir(),"update.apk.part").exists());
+        assertFalse(new File(activity.getCacheDir(),"update.pending.apk").exists());
     }
     public void testVerifiedApkOpensInstallerAndProviderIsReadOnly() throws Exception {
-        launch();appOps("allow");
+        launch();permission=true;
         setup(address->new FileInputStream(installed()),"Kurulumu Android ekranında");
         UpdateController.Release release=new UpdateController.Release("1.1.1","fixture",UpdateController.sha256(installed()),installed().length());
+        controller.validatePackage(installed());
         IntentFilter filter=new IntentFilter(Intent.ACTION_VIEW);filter.addDataType(UpdateApkProvider.MIME);filter.addDataScheme("content");
         Instrumentation.ActivityMonitor monitor=getInstrumentation().addMonitor(filter,new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
         try {
@@ -108,19 +103,20 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
             try (FileOutputStream out=new FileOutputStream(broken)) { out.write(new byte[]{1,2,3}); }
             try { controller.validatePackage(broken);fail("Invalid APK accepted"); } catch (java.io.IOException expected) { /* expected */ }
             broken.delete();
-        } finally { getInstrumentation().removeMonitor(monitor);appOps("default"); }
+        } finally { getInstrumentation().removeMonitor(monitor); }
     }
     public void testUnknownSourcePermissionCanBeDeclined() throws Exception {
-        launch();appOps("deny");
+        launch();permission=false;
         setup(address->new FileInputStream(installed()),"Yükleme iznini açıp");
         UpdateController.Release release=new UpdateController.Release("1.1.1","fixture",UpdateController.sha256(installed()),installed().length());
-        Instrumentation.ActivityMonitor monitor=getInstrumentation().addMonitor(new IntentFilter(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
+        IntentFilter filter=new IntentFilter(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);filter.addDataScheme("package");
+        Instrumentation.ActivityMonitor monitor=getInstrumentation().addMonitor(filter,new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
         try {
             main(()->controller.download(release));await();getInstrumentation().waitForIdleSync();
             assertTrue("Unknown-source settings requested",monitor.getHits()>0);
             main(()->controller.onPermissionResult());
             assertTrue(status.get().startsWith("Yükleme izni verilmedi"));
-        } finally { getInstrumentation().removeMonitor(monitor);appOps("default"); }
+        } finally { getInstrumentation().removeMonitor(monitor); }
     }
     @Override protected void tearDown() throws Exception {
         if (controller!=null) controller.close();

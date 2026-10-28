@@ -35,6 +35,8 @@ final class UpdateController {
     private final Activity activity;
     private final Status status;
     private final Source source;
+    private final java.util.function.BooleanSupplier canInstall;
+    private AlertDialog offerDialog;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile boolean closed;
     private volatile HttpsURLConnection active;
@@ -50,8 +52,10 @@ final class UpdateController {
         }
     }
     UpdateController(Activity activity, Status status) { this(activity,status,null); }
-    UpdateController(Activity activity, Status status, Source source) {
+    UpdateController(Activity activity, Status status, Source source) { this(activity,status,source,null); }
+    UpdateController(Activity activity, Status status, Source source, java.util.function.BooleanSupplier permission) {
         this.activity=activity; this.status=status;
+        this.canInstall=permission==null ? ()->activity.getPackageManager().canRequestPackageInstalls() : permission;
         this.source=source==null ? this::read : source;
     }
     private InputStream read(String address) throws IOException {
@@ -91,7 +95,7 @@ final class UpdateController {
                 }
                 ui(() -> {
                     busy=false; status.show("Güncelleme mevcut: "+release.version,false);
-                    new AlertDialog.Builder(activity).setTitle("Güncelleme mevcut")
+                    offerDialog=new AlertDialog.Builder(activity).setTitle("Güncelleme mevcut")
                         .setMessage("GitHub sürümü: "+release.version+"\nAPK indirilip Android yükleme ekranı açılacak.")
                         .setNegativeButton("Daha sonra",null)
                         .setPositiveButton("İndir ve yükle",(d,w)->download(release)).show();
@@ -153,7 +157,7 @@ final class UpdateController {
         if (busy || closed) return;
         busy=true; status.show("Güncelleme indiriliyor…",true);
         worker.execute(() -> {
-            File part=new File(activity.getCacheDir(),"update.apk.part");
+            File part=new File(activity.getCacheDir(),"update.pending.apk");
             File apk=UpdateApkProvider.apk(activity);
             boolean success=false;
             try {
@@ -203,7 +207,7 @@ final class UpdateController {
     private void install() {
         if (!UpdateApkProvider.apk(activity).isFile() || readyDigest==null) { status.show("APK bulunamadı; yeniden kontrol edin.",false); return; }
         try {
-            if (!activity.getPackageManager().canRequestPackageInstalls()) {
+            if (!canInstall.getAsBoolean()) {
                 permissionPending=true;
                 status.show("Yükleme iznini açıp uygulamaya geri dönün.",false);
                 activity.startActivityForResult(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+activity.getPackageName())),INSTALL_PERMISSION);
@@ -219,10 +223,11 @@ final class UpdateController {
     void onPermissionResult() {
         if (!permissionPending) return;
         permissionPending=false;
-        if (activity.getPackageManager().canRequestPackageInstalls()) install();
+        if (canInstall.getAsBoolean()) install();
         else status.show("Yükleme izni verilmedi. Güncelleme için yeniden kontrol edin.",false);
     }
     void close() {
-        closed=true; if (active!=null) active.disconnect(); worker.shutdownNow();
+        closed=true; activity.runOnUiThread(()->{if (offerDialog!=null) offerDialog.dismiss();});
+        if (active!=null) active.disconnect(); worker.shutdownNow();
     }
 }
