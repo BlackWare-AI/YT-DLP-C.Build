@@ -1,6 +1,9 @@
-## YT-DLP Command Builder 1.1.2 — prepared, not published
+## YT-DLP Command Builder 1.1.3
 
-- Frame selects the real frame nearest 0.5 seconds (or a custom time), with a first-frame fallback, one JPG per URL, private temporary storage, explicit cleanup and concise outcome counts.
-- Removed Frame A/B, first-frame and one-second choices; shortened its explanation.
-- Preserved the artwork with a smaller native inset and AMOLED black background. Replaced the history glyph with an SVG history icon in a rounded square button.
-- Android version 1.1.2, version code 13. No release publication requested for this change.
+- Frame, ilk saniyeden 0,5 saniyeye veya özel zamana en yakın gerçek kareyi yüksek kaliteli JPG olarak çıkarır. Hedef çıkarılamazsa ilk geçerli kareyi dener.
+- Yalnızca JPG saklanır. Geçici videolar otomatik temizlenir; işlem sonunda başarı/başarısızlık sayıları ve kısa hata nedenleri gösterilir.
+- Frame seçenekleri 0,5 saniye ve özel zaman olarak sadeleştirildi. Açıklama kısaltıldı.
+- Mevcut ikon küçültüldü ve AMOLED siyah boşluk eklendi. Geçmiş simgesi yuvarlatılmış kare kutuyla yenilendi.
+- Uygulama içinden GitHub güncelleme kontrolü, doğrulanmış APK indirme ve Android yükleme ekranına geçiş korunur.
+
+Android sürümü 1.1.3, version code 14. Android 10 ve üzeri. Mevcut release anahtarıyla imzalanır; önceki imzalı sürümün üzerine kurulabilir.
