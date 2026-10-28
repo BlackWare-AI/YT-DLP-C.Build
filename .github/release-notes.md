@@ -1,11 +1,6 @@
-## YT-DLP Command Builder 1.1.1
+## YT-DLP Command Builder 1.1.2 — prepared, not published
 
-- Added a bottom update button: check GitHub Releases, download a verified signed APK and open Android’s installer. Same-version APK replacements are detected.
-
-- Frame downloads only the first second without audio or video re-encoding and extracts a full-resolution JPG once with `-q:v 1 -pix_fmt yuvj444p`.
-- Frame commands keep cookie handling in yt-dlp and continue processing other links after an individual failure.
-- Frame uses the configured download directory and preserves existing outputs with numbered filenames.
-- B (default) keeps only a validated JPG; A keeps the video section and JPG. Temporary work files are cleaned on failure and interruption without relying on TMPDIR.
-- Android version remains 1.1.1 (version code 12).
-
-Android 10 or newer. This app only generates commands. It does not download or query Instagram content. Signed with the existing release identity.
+- Frame selects the real frame nearest 0.5 seconds (or a custom time), with a first-frame fallback, one JPG per URL, private temporary storage, explicit cleanup and concise outcome counts.
+- Removed Frame A/B, first-frame and one-second choices; shortened its explanation.
+- Preserved the artwork with a smaller native inset and AMOLED black background. Replaced the history glyph with an SVG history icon in a rounded square button.
+- Android version 1.1.2, version code 13. No release publication requested for this change.

@@ -58,9 +58,9 @@ The default cookies file is:
 $HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt
 ```
 
-These are independent configurable paths. The app stores the path, not the contents of your cookies file. Outputs go into `Video` (video with/without audio), `Audio` (audio), or `SClip` (StillClip) below the main download directory. Frame JPG files go to `Frame` below the configured main download directory. yt-dlp and the generated Frame command reuse or create their output folders.
+These are independent configurable paths. The app stores the path, not the contents of your cookies file. Outputs go into `Video` (video with/without audio), `Audio` (audio), or `SClip` (StillClip) below the main download directory. Frame JPG files go to `$HOME/storage/shared/Download/Apps/YT-DLP/Frame/`. yt-dlp and the generated Frame command reuse or create their output folders.
 
-Commands use safely escaped double-quoted arguments. Only a leading `$HOME` in a path expands; other shell substitutions stay literal. All URLs and repeated `--download-sections` options belong to one command. Frame uses the experimental yt-dlp executable and its configured cookies to download only the `*0-1` video section into a private temporary directory. FFprobe locates the last available frame at or before the selected time (the default is 1 second); FFmpeg encodes the selected frame once as JPG using `-q:v 1 -pix_fmt yuvj444p` at source dimensions without scaling, sharpening or image effects. Standard JPG is lossy. B (default) keeps only the validated JPG; A keeps the one-second video and JPG. Temporary work files are removed even if a link fails, and existing outputs are preserved with an incremented filename suffix. The temporary directory is created with `mktemp -d` inside `Frame`, independent of `TMPDIR`. Frame times must fall between 0 and 1 second. Audio uses `-f "ba/b" -x --audio-format best` with artwork enabled by default. No forced MP3/M4A conversion or `--force-keyframes-at-cuts` is added. Cuts can align with source keyframes rather than exact requested boundaries.
+Commands use safely escaped double-quoted arguments. Only a leading `$HOME` in a path expands; other shell substitutions stay literal. All URLs and repeated `--download-sections` options belong to one command. Frame uses the experimental yt-dlp executable and its configured cookies to download only the `*0-1` video section into a private temporary directory. FFmpeg selects the closest real frame on either side of the target (default 0.5 seconds), including the final available frame in a short or low-FPS clip. It encodes one JPG using `-q:v 1 -pix_fmt yuvj444p` at source dimensions, with no resizing, sharpening or image effects. If extraction fails or returns no valid JPG, the same temporary video supplies its first valid frame. Standard JPG is lossy. Frame keeps only one verified JPG per URL; no video retention choice remains. The generated command is a single isolated Bash invocation with no input prompts. Temporary files use `mktemp -d` in Termux private storage, with a HOME cache fallback when needed; explicit cleanup and signal/exit traps remove only the directories created by that run. Validated JPG bytes are staged and moved without overwriting existing filenames. A final summary counts successful/failed JPGs and lists failed URLs with brief reasons. Custom target times remain within the downloaded first second. Audio uses `-f "ba/b" -x --audio-format best` with artwork enabled by default. No forced MP3/M4A conversion or `--force-keyframes-at-cuts` is added. Cuts can align with source keyframes rather than exact requested boundaries.
 
 ## What the app does not do
 
@@ -82,7 +82,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.1.1`
+- Current documented version: `1.1.2`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -94,7 +94,7 @@ Press Back twice within two seconds on the main screen to exit. Back first dismi
 
 All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.1-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.2-debug`.
 
 Validation commands:
 

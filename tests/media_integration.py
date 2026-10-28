@@ -180,11 +180,13 @@ def main():
             frame_prefix=frame_home/'termux';frame_prefix.mkdir()
             pythonpath=os.pathsep.join(filter(None,[os.environ.get('PYTHONPATH',''),site.getusersitepackages()]))
             result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'PREFIX':str(frame_prefix),'PYTHONPATH':pythonpath,'FIXTURE_FRAME':'1','TMPDIR':str(frame_home/'missing'/'tmp')},text=True)
-            frame_files=list((output/'Frame').glob('*.jpg'))
+            frame_output=frame_home/'storage/shared/Download/Apps/YT-DLP/Frame'
+            frame_files=list(frame_output.glob('*.jpg'))
             assert len(frame_files)==1,result.stdout
             frame_meta=probe(frame_files[0]);assert frame_meta['streams'][0]['codec_name']=='mjpeg'
             assert frame_meta['streams'][0]['width']==160 and frame_meta['streams'][0]['height']==120
-            assert not list((output/'Frame').glob('.frame.*'))
+            assert all(file.suffix=='.jpg' for file in frame_output.iterdir())
+            assert not list(frame_prefix.glob('tmp/ytdlp-frame.*'))
             assert not (frame_home/'missing').exists()
             assert frame_meta['streams'][0]['pix_fmt']=='yuvj444p'
             print('PASS: Frame yt-dlp cookie download, one JPG at source resolution, and temporary video cleanup')
