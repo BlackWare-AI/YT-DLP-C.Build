@@ -48,66 +48,40 @@ test('StillClip is video only first second; ignores editor',()=>{
  const c=B.build(input({mode:'still'},[{start:'bad',end:'bad'}])).command;
  assert.match(c,/-f "bv"/);assert.match(c,/--download-sections "\*0-1"/);assert.doesNotMatch(c,/bad/);
 });
-test('Frame emits one PNG without saving a video and uses the required output folder',()=>{
- const c=B.build({links:story(1),settings:{...B.defaults,mode:'frame'},cuts:[{start:'invalid',end:'invalid'}]}).command;
- assert.match(c,/-f "bv" --skip-download/);assert.match(c,/-f "bv" -g --print "%\(http_headers\)j" -- "\$URL"/);
- assert.match(c,/FFMPEG_ARGS\+=\(-headers "\$HTTP_HEADERS"\)/);assert.match(c,/FFMPEG_ARGS\+=\(-cookies "\$HTTP_COOKIES"\)/);assert.match(c,/MozillaCookieJar/);
- assert.match(c,/-map 0:v:0 -frames:v 1/);assert.match(c,/vcodec png/);assert.match(c,/Download\/Apps\/YT-DLP\/Frame/);
- assert.doesNotMatch(c,/\.mp4|--download-sections|filter:v|scale=/);
- assert.match(c,/--parse-metadata/);assert.match(c,/--cookies/);assert.match(c,/--sleep-requests 2 --sleep-interval 6 --max-sleep-interval 16/);
- assert.match(c,/\$HOME\/yt-dlp-story-test\/bin\/yt-dlp/);
-});
-test('Frame supports first frame, preset times and validated custom seconds',()=>{
- const build=frameTime=>B.build({links:story(1),settings:{...B.defaults,mode:'frame',frameTime,frameCustomTime:'2.25'}}).command;
- assert.match(build('first'),/-frames:v 1/);assert.doesNotMatch(build('first'),/FFMPEG_ARGS\+=\(-ss/);
- for(const [choice,time] of [['0.5','0.5'],['1','1'],['custom','2.25']]) assert.match(build(choice),new RegExp('FFMPEG_ARGS\\+=\\(-ss "'+time.replace('.','\\.')+'"\\)'));
- for(const invalid of ['-1','abc','Infinity','']) assert.throws(()=>B.build({links:story(1),settings:{...B.defaults,mode:'frame',frameTime:'custom',frameCustomTime:invalid}}));
-});
-test('Frame keeps URL order, engine, cookies, selection and independent-link failure handling',()=>{
- const urls=['https://www.instagram.com/user.1','https://www.instagram.com/user.2'];
- const result=B.build({links:urls.join(''),settings:{...B.defaults,engine:'normal',mode:'frame',cookies:'$HOME/My Cookies/c.txt',requests:'3',min:'7',max:'12'},selection:{only:'2'}});
- execFileSync('bash',['-n'],{input:result.command});
- assert.match(result.command,/YTDLP=\(yt-dlp\)/);assert.match(result.command,/COOKIES=\(--cookies "\$HOME\/My Cookies\/c.txt"\)/);
- assert.match(result.command,/SELECT=\(--playlist-items "2"\)/);assert.match(result.command,/--sleep-requests 3 --sleep-interval 7 --max-sleep-interval 12/);
- assert.ok(result.command.indexOf(urls[0])<result.command.indexOf(urls[1]));assert.match(result.command,/continue/);
-});
-test('Frame command extracts a valid full-resolution PNG per link and leaves no partial output after failure',{skip:!ffmpegAvailable},t=>{
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'frame-builder-'));
- t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- const source=path.join(root,'source.mp4');
- execFileSync('ffmpeg',['-nostdin','-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=64x48:rate=30:duration=2','-c:v','mpeg4','-q:v','2','-y',source]);
- const source1fps=path.join(root,'source-1fps.mp4');
- execFileSync('ffmpeg',['-nostdin','-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=64x48:rate=1:duration=2','-c:v','mpeg4','-q:v','2','-y',source1fps]);
- const bin=path.join(root,'yt-dlp-story-test','bin');fs.mkdirSync(bin,{recursive:true});
- fs.writeFileSync(path.join(bin,'yt-dlp'),'#!/usr/bin/env bash\nset -u\nGET=0; URL=""\nfor arg in "$@"; do [[ "$arg" == "-g" ]] && GET=1; URL="$arg"; done\nif [[ $GET -eq 1 ]]; then if [[ "$URL" == *"/bad/"* ]]; then printf "%s\\n{}\\n" "file:///missing-frame-video.mp4"; elif [[ "$URL" == *"onefps"* ]]; then printf "file://%s\\n{}\\n" "$FRAME_TEST_SOURCE_1FPS"; else printf "file://%s\\n{}\\n" "$FRAME_TEST_SOURCE"; fi; else printf "fallback|20261028|1530\\n"; fi\n',{mode:0o755});
- const links='https://instagram.com/stories/frame.user/123 https://instagram.com/stories/bad/789 https://instagram.com/stories/onefps/234';
- const command=B.build({links,settings:{...B.defaults,mode:'frame',engine:'experimental',requests:'0',min:'0',max:'0'}}).command;
- execFileSync('bash',['-n'],{input:command});
- const cookiePath=path.join(root,'storage/shared/Download/Apps/YT-DLPTemp/cookies.txt');fs.mkdirSync(path.dirname(cookiePath),{recursive:true});fs.writeFileSync(cookiePath,'# Netscape HTTP Cookie File\n');
- let status=0,firstError='';try {execFileSync('bash',['-c',command],{env:{...process.env,HOME:root,FRAME_TEST_SOURCE:source,FRAME_TEST_SOURCE_1FPS:source1fps},stdio:'pipe'});} catch(e) {status=e.status;firstError=e.stderr?.toString()||'';}
- assert.equal(status,1,firstError||'one failed source reports a partial batch failure after processing all links');
- const output=path.join(root,'storage/shared/Download/Apps/YT-DLP/Frame');
- const pngs=fs.readdirSync(output).filter(file=>file.endsWith('.png'));
- assert.equal(pngs.length,2,firstError);assert.ok(pngs.some(file=>file.startsWith('frame.user-20261028-1530-01')));assert.ok(pngs.some(file=>file.startsWith('onefps-20261028-1530-01')));
- try {execFileSync('bash',['-c',command],{env:{...process.env,HOME:root,FRAME_TEST_SOURCE:source,FRAME_TEST_SOURCE_1FPS:source1fps},stdio:'pipe'});} catch(e) {status=e.status;firstError=e.stderr?.toString()||'';}
- assert.equal(status,1,firstError);assert.equal(fs.readdirSync(output).filter(file=>file.endsWith('.png')).length,4,'existing PNGs are preserved and later names remain unique');
- for(const png of fs.readdirSync(output).filter(file=>file.endsWith('.png'))) {
-  const dimensions=execFileSync('ffprobe',['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','csv=s=x:p=0',path.join(output,png)],{encoding:'utf8'}).trim();
-  assert.equal(dimensions,'64x48');
+test('Frame uses experimental yt-dlp section downloads and writes one validated lossless PNG per URL',{skip:!ffmpegAvailable},t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'frame-builder-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const sources={};
+ for(const [name,rate,duration] of [['fast',30,2],['short',1,.65]]) {
+  const file=path.join(root,name+'.mp4');
+  execFileSync('ffmpeg',['-nostdin','-hide_banner','-loglevel','error','-f','lavfi','-i',`testsrc2=size=64x48:rate=${rate}:duration=${duration}`,'-c:v','mpeg4','-q:v','2','-y',file]);sources[name]=file;
  }
- assert.equal(fs.readdirSync(output).filter(file=>file.startsWith('.frame.')).length,0);
-});
-test('Frame forwards yt-dlp headers and matching Netscape cookies to FFmpeg',t=>{
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'frame-headers-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- const bin=path.join(root,'yt-dlp-story-test','bin');fs.mkdirSync(bin,{recursive:true});
- fs.writeFileSync(path.join(bin,'yt-dlp'),'#!/usr/bin/env bash\nset -u\nGET=0; URL=""\nfor arg in "$@"; do [[ "$arg" == "-g" ]] && GET=1; URL="$arg"; done\nif [[ $GET -eq 1 ]]; then printf "%s\\n%s\\n" "https://video.cdninstagram.com/seg.mp4" \'{"User-Agent":"frame-test-agent","Referer":"https://www.instagram.com/"}\'; else printf "frame.user|20261028|1432\\n"; fi\n',{mode:0o755});
- const fakeFfmpeg=path.join(root,'bin');fs.mkdirSync(fakeFfmpeg);fs.writeFileSync(path.join(fakeFfmpeg,'ffmpeg'),'#!/usr/bin/env bash\nset -u\n: > "$FFMPEG_ARGS_LOG"\nfor arg in "$@"; do printf "%s\\n" "$arg" >> "$FFMPEG_ARGS_LOG"; OUT="$arg"; done\nprintf PNG > "$OUT"\n',{mode:0o755});
- const cookieFile=path.join(root,'cookies.txt');fs.writeFileSync(cookieFile,'# Netscape HTTP Cookie File\n.cdninstagram.com\tTRUE\t/\tTRUE\t1893456000\tsessionid\tsecret-frame-cookie\n');
- const command=B.build({links:story(1),settings:{...B.defaults,mode:'frame',engine:'experimental',cookies:'$HOME/cookies.txt',requests:'0',min:'0',max:'0'}}).command;
+ const home=path.join(root,'home'),prefix=path.join(root,'termux-private');fs.mkdirSync(home);fs.mkdirSync(prefix);
+ const bin=path.join(home,'yt-dlp-story-test','bin');fs.mkdirSync(bin,{recursive:true});
+ fs.writeFileSync(path.join(bin,'yt-dlp'),`#!/usr/bin/env bash\nset -u\nURL= OUT=\nwhile (($#)); do case "$1" in -P) OUT=$2; shift 2;; --download-sections) [[ "$2" == "*0-1" ]] || exit 9; shift 2;; -f) [[ "$2" == bv ]] || exit 8; shift 2;; --) shift; URL=$1; shift;; *) shift;; esac; done\nprintf '%s\\n' "$URL" >> "$FRAME_YTDLP_LOG"\n[[ "$URL" == *bad* ]] && exit 1\nif [[ "$URL" == *short* ]]; then cp "$FRAME_SOURCE_SHORT" "$OUT/short.user-20261028-1530-01.mp4"; else ffmpeg -nostdin -v error -i "$FRAME_SOURCE_FAST" -t 1 -c copy -y "$OUT/fast.user-20261028-1530-01.mp4"; fi\n`,{mode:0o755});
+ const links=['https://instagram.com/stories/fast.user/123','https://instagram.com/stories/bad.user/456','https://instagram.com/stories/short.user/789'].join(' ');
+ const command=B.build({links,settings:{...B.defaults,mode:'frame',engine:'normal',cookies:'$HOME/My Cookies/cookies.txt',requests:'7',min:'0',max:'0'}}).command;
+ assert.ok(command.includes('YTDLP=("$HOME/yt-dlp-story-test/bin/yt-dlp")'));assert.match(command,/--ignore-config/);assert.match(command,/--no-playlist/);assert.ok(command.includes('--no-overwrites -f "bv" --download-sections "*0-1"'));assert.ok(command.includes('--cookies "$HOME/My Cookies/cookies.txt"'));assert.match(command,/--sleep-requests 7 --sleep-interval 0 --max-sleep-interval 0/);
+ assert.doesNotMatch(command,/\s-g(?:\s|$)|--print|python|headers|http_headers|MozillaCookieJar|\bln /i);assert.match(command,/ffprobe/);assert.match(command,/compression_level 0/);assert.match(command,/select=eq/);assert.match(command,/PRIVATE_TMP/);assert.match(command,/trap cleanup EXIT/);
  execFileSync('bash',['-n'],{input:command});
- execFileSync('bash',['-c',command],{env:{...process.env,HOME:root,PATH:fakeFfmpeg+path.delimiter+process.env.PATH,FFMPEG_ARGS_LOG:path.join(root,'ffmpeg-args.txt')},stdio:'pipe'});
- const args=fs.readFileSync(path.join(root,'ffmpeg-args.txt'),'utf8');
- assert.match(args,/-headers/);assert.match(args,/User-Agent: frame-test-agent/);assert.match(args,/Referer: https:\/\/www\.instagram\.com/);assert.match(args,/-cookies/);assert.match(args,/sessionid=secret-frame-cookie; path=\/; domain=\.cdninstagram\.com;/);
+ const env={...process.env,HOME:home,PREFIX:prefix,FRAME_SOURCE_FAST:sources.fast,FRAME_SOURCE_SHORT:sources.short,FRAME_YTDLP_LOG:path.join(root,'ytdlp.log')};
+ let status=0, errorText='';try{execFileSync('bash',['-c',command],{env,stdio:'pipe'});}catch(e){status=e.status;errorText=e.stderr?.toString()||'';}
+ assert.equal(status,1,'bad URL fails the batch after continuing through later links');
+ const output=path.join(home,'storage/shared/Download/Apps/YT-DLP/Frame');let pngs=fs.readdirSync(output).filter(x=>x.endsWith('.png')).sort();assert.deepEqual(pngs,['fast.user-20261028-1530-01.png','short.user-20261028-1530-01.png'],errorText);
+ for(const name of pngs){const meta=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',path.join(output,name)],{encoding:'utf8'}));assert.equal(meta.streams.length,1);assert.equal(meta.streams[0].codec_name,'png');assert.deepEqual([meta.streams[0].width,meta.streams[0].height],[64,48]);}
+ assert.equal(fs.readFileSync(env.FRAME_YTDLP_LOG,'utf8').trim().split('\n').length,3,'all links ran, including after a failure');
+ assert.deepEqual(fs.readdirSync(path.join(prefix,'tmp')),[],'private temporary videos are removed');assert.deepEqual(fs.readdirSync(output).filter(x=>x.startsWith('.frame.')),[],'staged PNGs are removed');
+ try{execFileSync('bash',['-c',command],{env,stdio:'pipe'});}catch(e){status=e.status;}assert.equal(status,1);
+ pngs=fs.readdirSync(output).filter(x=>x.endsWith('.png'));assert.equal(pngs.length,4);assert.ok(pngs.includes('fast.user-20261028-1530-02.png'));assert.ok(pngs.includes('short.user-20261028-1530-02.png'));
+});
+test('Frame uses its experimental engine and validates frame times inside the downloaded second',()=>{
+ const build=(frameTime,frameCustomTime='')=>B.build({links:story(1),settings:{...B.defaults,mode:'frame',engine:'normal',frameTime,frameCustomTime}}).command;
+ for(const choice of ['0.5','1','first']) assert.ok(build(choice).includes('--download-sections "*0-1"'));
+ assert.ok(build('custom','0.75').includes('FRAME_TIME="0.75"'));
+ assert.ok(build('1').includes('FRAME_TIME="1"'));
+ for(const invalid of ['-1','1.01','abc','Infinity','']) assert.throws(()=>build('custom',invalid));
+ assert.ok(build('1').includes('YTDLP=("$HOME/yt-dlp-story-test/bin/yt-dlp")'));
+ const collection=B.build({links:'https://instagram.com/stories/story.account',settings:{...B.defaults,mode:'frame'},selection:{only:'2'}}).command;
+ assert.ok(collection.includes('SELECT=(--playlist-items "2")'));
 });
 test('three sections are options of one process and use numbered filenames',()=>{
  const r=B.build(input({},[{start:'27',end:'45'},{start:'52',end:'Son'},{start:'75',end:'90'}]));

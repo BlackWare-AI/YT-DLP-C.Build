@@ -7,7 +7,7 @@
   const defaults = Object.freeze({engine:'experimental', mode:'av',
     folder:'$HOME/storage/shared/Download/Apps/YT-DLPTemp',
     cookies:'$HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt',
-    frameTime:'first', frameCustomTime:'',
+    frameTime:'1', frameCustomTime:'',
     requests:'2', min:'6', max:'16', thumb:true, overwrite:true});
   function normalizeSettings(settings, schema) {
     const result = {...defaults, ...settings};
@@ -154,107 +154,75 @@
     return '%(channel,uploader,creator|unknown)s-%(upload_date,timestamp>%Y%m%d|undated)s-%(timestamp>%H%M|0000)s-%(autonumber)02d.%(ext)s';
   }
   function frameTimestamp(settings) {
-    const selected=String(settings.frameTime || 'first');
-    if(selected==='first') return null;
+    const selected=String(settings.frameTime || '1');
+    if(selected==='first') return '0';
     const raw=selected==='custom' ? String(settings.frameCustomTime || '').trim() : selected;
-    if(!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw)))
-      throw Error('Frame zamanı sıfır veya pozitif bir saniye değeri olmalı.');
+    if(!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw)) || Number(raw)>1)
+      throw Error('Frame zamanı 0 ile 1 saniye arasında olmalı.');
     return String(Number(raw));
   }
   function buildFrameCommand(settings, urls, items, min, max, req, cookies) {
-    const ytdlp=settings.engine==='normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp');
+    const ytdlp=shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp');
     const output=shellPath('$HOME/storage/shared/Download/Apps/YT-DLP/Frame');
     const playlist=items ? 'SELECT=(--playlist-items '+quote(items)+')' : 'SELECT=()';
     const cookieArgs=cookies ? 'COOKIES=(--cookies '+cookies+')' : 'COOKIES=()';
-    const cookieFile=cookies || '""';
-    const seek=frameTimestamp(settings);
     const lines=[
       '#!/usr/bin/env bash',
       'set -u',
       'YTDLP=('+ytdlp+')',
       'COMMON=(--ignore-config --no-playlist)',
       cookieArgs,
-      'COOKIE_FILE='+cookieFile,
-      'YTDLP_PATH=$(command -v "${YTDLP[0]}") || { printf "%s\\n" "yt-dlp bulunamadı." >&2; exit 127; }',
-      'YTDLP_DIR=${YTDLP_PATH%/*}',
-      'PYTHON=()',
-      'for CANDIDATE in "$YTDLP_DIR/python" "$YTDLP_DIR/python3" "$YTDLP_DIR/python3.13"; do if [[ -x "$CANDIDATE" ]]; then PYTHON=("$CANDIDATE"); break; fi; done',
-      'if [[ ${#PYTHON[@]} -eq 0 ]]; then if command -v python3 >/dev/null 2>&1; then PYTHON=("$(command -v python3)"); elif command -v python >/dev/null 2>&1; then PYTHON=("$(command -v python)"); else printf "%s\\n" "Frame akış başlıklarını ve çerezlerini aktarmak için Python 3 gereklidir." >&2; exit 127; fi; fi',
-      'SELECT='+playlist.slice('SELECT='.length),
+      playlist,
       'SLEEP=(--sleep-requests '+req+' --sleep-interval '+min+' --max-sleep-interval '+max+')',
-      'MIN_SLEEP='+min,
-      'MAX_SLEEP='+max,
       'OUT='+output,
-      'command -v ffmpeg >/dev/null 2>&1 || { printf "%s\\n" "FFmpeg bulunamadı. Termux ortamında pkg install ffmpeg komutuyla kurun." >&2; exit 127; }',
-      'mkdir -p "$OUT" || { printf "%s\\n" "Frame klasörü oluşturulamadı." >&2; exit 1; }',
+      'FRAME_TIME='+quote(frameTimestamp(settings)),
+      'command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf "%s\\n" "FFmpeg bulunamadı. Termux ortamında pkg install ffmpeg komutuyla kurun." >&2; exit 127; }',
+      'mkdir -p "$OUT" || exit 1',
       'URLS=('+urls.map(quote).join(' ')+')',
+      'PRIVATE_TMP=${TMPDIR:-${PREFIX:-$HOME}/tmp}',
+      'mkdir -p "$PRIVATE_TMP" || exit 1',
+      'RUN_TMP=$(mktemp -d "$PRIVATE_TMP/ytdlp-frame.XXXXXX") || exit 1',
+      'STAGE=""',
+      'cleanup() { [[ -z "$STAGE" ]] || rm -f -- "$STAGE"; rm -rf -- "$RUN_TMP"; }',
+      'trap cleanup EXIT',
+      'trap "exit 130" HUP INT TERM',
       'FAILURES=0',
       'FIRST_URL=1',
       'for URL in "${URLS[@]}"; do',
-      '  if [[ $FIRST_URL -eq 0 ]]; then sleep "$MIN_SLEEP"; fi',
+      '  if [[ $FIRST_URL -eq 0 ]]; then sleep '+min+'; fi',
       '  FIRST_URL=0',
+      '  ITEM_TMP=$(mktemp -d "$RUN_TMP/item.XXXXXX") || { FAILURES=$((FAILURES+1)); continue; }',
       '  META_ARGS=()',
       '  if [[ "$URL" =~ ^https://www\\.instagram\\.com/stories/([^/?#]+) ]]; then META_ARGS=(--parse-metadata '+quote(storyMetadata)+'); fi',
-      '  META_TEXT=$("${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" "${META_ARGS[@]}" -f "bv" --skip-download --print '+quote('%(channel,uploader,creator|unknown)s|%(upload_date,timestamp>%Y%m%d|undated)s|%(timestamp>%H%M|0000)s')+' -- "$URL") || {',
-      '    printf "Frame metadatası alınamadı: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); continue;',
-      '  }',
-      '  STREAM_TEXT=$("${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" -f "bv" -g --print '+quote('%(http_headers)j')+' -- "$URL") || {',
-      '    printf "Video akışı çözümlenemedi: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); continue;',
-      '  }',
-      '  mapfile -t META_LINES <<< "$META_TEXT"',
-      '  mapfile -t STREAM_DATA <<< "$STREAM_TEXT"',
-      '  if [[ $((${#STREAM_DATA[@]} % 2)) -ne 0 ]]; then printf "yt-dlp akış URLsi ile HTTP başlıklarını eşleştiremedi: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); continue; fi',
-      '  STREAM_PAIRS=()',
-      '  for ((PAIR_INDEX=0; PAIR_INDEX<${#STREAM_DATA[@]}; PAIR_INDEX+=2)); do',
-      '    FIRST_LINE=${STREAM_DATA[$PAIR_INDEX]}',
-      '    SECOND_LINE=${STREAM_DATA[$((PAIR_INDEX+1))]}',
-      '    if [[ "$FIRST_LINE" == \\{* || "$FIRST_LINE" == "null" ]]; then STREAM_PAIRS+=("$SECOND_LINE" "$FIRST_LINE"); else STREAM_PAIRS+=("$FIRST_LINE" "$SECOND_LINE"); fi',
-      '  done',
-      '  STREAM_DATA=("${STREAM_PAIRS[@]}")',
-      '  ITEM_INDEX=0',
-      '  for ((STREAM_INDEX=0; STREAM_INDEX<${#STREAM_DATA[@]}; STREAM_INDEX+=2)); do',
-      '    STREAM=${STREAM_DATA[$STREAM_INDEX]}',
-      '    HTTP_HEADERS_JSON=${STREAM_DATA[$((STREAM_INDEX+1))]:-null}',
-      '    [[ -n "$STREAM" ]] || continue',
-      '    META_LINE=${META_LINES[$ITEM_INDEX]:-${META_LINES[0]:-unknown|undated|0000}}',
-      '    IFS="|" read -r USERNAME FILE_DATE FILE_TIME <<< "$META_LINE"',
-      '    if [[ "$URL" =~ ^https://www\\.instagram\\.com/stories/([^/?#]+) ]]; then USERNAME=${BASH_REMATCH[1]}; fi',
-      '    USERNAME=$(printf "%s" "${USERNAME:-unknown}" | sed "s/[^A-Za-z0-9._-]/_/g")',
-      '    FILE_DATE=${FILE_DATE:-undated}; FILE_TIME=${FILE_TIME:-0000}',
+      '  "${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" "${META_ARGS[@]}" --no-overwrites -f "bv" --download-sections "*0-1" -P "$ITEM_TMP" -o '+quote(template())+' -- "$URL"',
+      '  if [[ $? -ne 0 ]]; then FAILURES=$((FAILURES+1)); rm -rf -- "$ITEM_TMP"; continue; fi',
+      '  FOUND=0',
+      '  while IFS= read -r -d "" VIDEO; do',
+      '    FOUND=1',
+      '    TIMES=$(ffprobe -v error -select_streams v:0 -show_entries frame=best_effort_timestamp_time -of csv=p=0 "$VIDEO" 2>/dev/null) || { FAILURES=$((FAILURES+1)); continue; }',
+      "    FRAME_INDEX=$(printf '%s\\n' \"$TIMES\" | awk -v target=\"$FRAME_TIME\" 'NF && $1 != \"N/A\" {if (first == \"\") first=NR-1; if (($1+0) <= (target+0)) chosen=NR-1} END {if (NR==0) exit 1; if (chosen == \"\") chosen=(first == \"\" ? 0 : first); print chosen}') || { FAILURES=$((FAILURES+1)); continue; }",
+      '    PNG_TMP="$ITEM_TMP/frame.png"',
+      '    ffmpeg -nostdin -hide_banner -loglevel error -i "$VIDEO" -map 0:v:0 -vf "select=eq(n\\\\,${FRAME_INDEX})" -frames:v 1 -compression_level 0 -y "$PNG_TMP" 2>/dev/null || { FAILURES=$((FAILURES+1)); continue; }',
+      '    DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$PNG_TMP" 2>/dev/null) || { FAILURES=$((FAILURES+1)); continue; }',
+      '    [[ -s "$PNG_TMP" && "$DIMENSIONS" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || { FAILURES=$((FAILURES+1)); continue; }',
+      '    BASE=${VIDEO##*/}; BASE=${BASE%.*}; BASE=${BASE%-[0-9][0-9]}',
       '    SEQUENCE=1',
+      '    while :; do SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$BASE-$SUFFIX.png"; [[ -e "$TARGET" ]] || break; SEQUENCE=$((SEQUENCE+1)); done',
+      '    STAGE=$(mktemp "$OUT/.frame.XXXXXX.png") || { FAILURES=$((FAILURES+1)); continue; }',
+      '    cp -- "$PNG_TMP" "$STAGE" || { rm -f -- "$STAGE"; STAGE=""; FAILURES=$((FAILURES+1)); continue; }',
+      '    STAGE_DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$STAGE" 2>/dev/null) || { rm -f -- "$STAGE"; STAGE=""; FAILURES=$((FAILURES+1)); continue; }',
+      '    [[ "$STAGE_DIMENSIONS" == "$DIMENSIONS" && -s "$STAGE" ]] || { rm -f -- "$STAGE"; STAGE=""; FAILURES=$((FAILURES+1)); continue; }',
       '    while :; do',
-      '      SUFFIX=$(printf "%02d" "$SEQUENCE")',
-      '      TARGET="$OUT/$USERNAME-$FILE_DATE-$FILE_TIME-$SUFFIX.png"',
-      '      [[ -e "$TARGET" ]] || break',
-      '      SEQUENCE=$((SEQUENCE+1))',
+      '      mv -n -- "$STAGE" "$TARGET" 2>/dev/null || true',
+      '      [[ -e "$STAGE" ]] || break',
+      '      SEQUENCE=$((SEQUENCE+1)); SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$BASE-$SUFFIX.png"',
       '    done',
-      '    TEMP=$(mktemp "$OUT/.frame.XXXXXX") || { printf "Geçici PNG yolu oluşturulamadı.\\n" >&2; FAILURES=$((FAILURES+1)); ITEM_INDEX=$((ITEM_INDEX+1)); continue; }',
-      '    FFMPEG_ARGS=(-nostdin -hide_banner -loglevel error)',
-      ...(seek===null ? [] : ['    FFMPEG_ARGS+=(-ss '+quote(seek)+')']),
-      '    AUTH_DATA=$("${PYTHON[@]}" - "$STREAM" "$HTTP_HEADERS_JSON" "$COOKIE_FILE" <<PYFRAMEHEADERS\nimport http.cookiejar, json, sys\nfrom urllib.parse import urlsplit\nfrom urllib.request import Request\nurl, raw_headers, cookie_file = sys.argv[1:]\nheaders = json.loads(raw_headers) if raw_headers and raw_headers != "null" else {}\nif not isinstance(headers, dict):\n    raise SystemExit("yt-dlp HTTP başlıkları okunamadı")\nrequest = Request(url)\ncookies = []\nif cookie_file:\n    jar = http.cookiejar.MozillaCookieJar(cookie_file)\n    jar.load(ignore_discard=True, ignore_expires=False)\n    jar.add_cookie_header(request)\n    for cookie in jar._cookies_for_request(request):\n        value = f"{cookie.name}={cookie.value}; path={cookie.path or \'/\'};"\n        if cookie.domain_specified:\n            value += f" domain={cookie.domain};"\n        if cookie.secure:\n            value += " secure;"\n        cookies.append(value)\nfor key in list(headers):\n    if key.lower() == "cookie":\n        host = urlsplit(url).hostname or ""\n        for item in str(headers.pop(key)).split(";"):\n            if "=" in item:\n                name, value = item.strip().split("=", 1)\n                cookies.append(f"{name}={value}; path=/; domain={host};")\nfor name, value in headers.items():\n    sys.stdout.write(f"{name}: {value}\\r\\n")\nsys.stdout.write("\\n__YT_DLP_FFMPEG_COOKIE_SEPARATOR__\\n")\nsys.stdout.write("\\n".join(cookies))\nPYFRAMEHEADERS\n) || { rm -f "$TEMP"; printf "Akış çerezleri veya HTTP başlıkları hazırlanamadı: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); ITEM_INDEX=$((ITEM_INDEX+1)); continue; }',
-      '    AUTH_SEPARATOR=$\'\\n__YT_DLP_FFMPEG_COOKIE_SEPARATOR__\'',
-      '    if [[ "$AUTH_DATA" != *"$AUTH_SEPARATOR"* ]]; then rm -f "$TEMP"; printf "Akış çerezleri veya HTTP başlıkları ayrıştırılamadı: %s\\n" "$URL" >&2; FAILURES=$((FAILURES+1)); ITEM_INDEX=$((ITEM_INDEX+1)); continue; fi',
-      '    HTTP_HEADERS=${AUTH_DATA%%"$AUTH_SEPARATOR"*}',
-      '    HTTP_COOKIES=${AUTH_DATA#*"$AUTH_SEPARATOR"}',
-      '    HTTP_COOKIES=${HTTP_COOKIES#$\'\\n\'}',
-      '    if [[ -n "$HTTP_HEADERS" ]]; then FFMPEG_ARGS+=(-headers "$HTTP_HEADERS"); fi',
-      '    if [[ -n "$HTTP_COOKIES" ]]; then FFMPEG_ARGS+=(-cookies "$HTTP_COOKIES"); fi',
-      '    FFMPEG_LOG=$(ffmpeg "${FFMPEG_ARGS[@]}" -i "$STREAM" -map 0:v:0 -frames:v 1 -y -f image2 -vcodec png "$TEMP" 2>&1)',
-      '    FFMPEG_STATUS=$?',
-      '    if [[ $FFMPEG_STATUS -ne 0 || ! -s "$TEMP" ]]; then',
-      '      rm -f "$TEMP"; printf "%s\\n" "$FFMPEG_LOG" >&2',
-      '      printf "Frame oluşturulamadı: seçilen zaman video süresini aşmış veya akış çözümlenememiş olabilir. Bağlantı: %s\\n" "$URL" >&2',
-      '      FAILURES=$((FAILURES+1)); ITEM_INDEX=$((ITEM_INDEX+1)); continue',
-      '    fi',
-      '    while ! ln "$TEMP" "$TARGET" 2>/dev/null; do',
-      '      if [[ -e "$TARGET" ]]; then SEQUENCE=$((SEQUENCE+1)); SUFFIX=$(printf "%02d" "$SEQUENCE"); TARGET="$OUT/$USERNAME-$FILE_DATE-$FILE_TIME-$SUFFIX.png"; continue; fi',
-      '      rm -f "$TEMP"; printf "PNG dosyası kaydedilemedi: %s\\n" "$TARGET" >&2; FAILURES=$((FAILURES+1)); break',
-      '    done',
-      '    if [[ -e "$TARGET" && -s "$TARGET" ]]; then printf "Frame kaydedildi: %s\\n" "$TARGET"; rm -f "$TEMP"; fi',
-      '    ITEM_INDEX=$((ITEM_INDEX+1))',
-      '  done',
+      '    STAGE=""',
+      '  done < <(find "$ITEM_TMP" -maxdepth 1 -type f ! -name "*.part" ! -name "*.ytdl" -print0)',
+      '  [[ $FOUND -eq 1 ]] || FAILURES=$((FAILURES+1))',
+      '  rm -rf -- "$ITEM_TMP"',
       'done',
-      'if [[ $FAILURES -gt 0 ]]; then printf "İşlem tamamlandı; %s öğede hata oluştu.\\n" "$FAILURES" >&2; exit 1; fi'
+      'if [[ $FAILURES -gt 0 ]]; then exit 1; fi'
     ];
     return lines.join('\n');
   }

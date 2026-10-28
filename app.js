@@ -287,7 +287,7 @@ $('copy').onclick=async()=>{
     if(JSON.stringify(state.selection)===JSON.stringify(snapshot.selection)) state.selection={only:'',after:'',before:''};
     if(snapshot.settings.mode==='frame' && state.settings.mode==='frame' &&
       state.settings.frameTime===snapshot.settings.frameTime && state.settings.frameCustomTime===snapshot.settings.frameCustomTime)
-      state.settings={...state.settings,frameTime:'first',frameCustomTime:''};
+      state.settings={...state.settings,frameTime:'1',frameCustomTime:''};
     try { persist(); }
     catch(e) {
       state.history=oldHistory; state.links=oldLinks; state.cuts=oldCuts; state.selection=oldSelection;
