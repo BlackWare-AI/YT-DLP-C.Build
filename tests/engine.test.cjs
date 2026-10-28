@@ -80,6 +80,8 @@ test('Frame uses its experimental engine and validates frame times inside the do
  assert.ok(build('1').includes('FRAME_TIME="1"'));
  for(const invalid of ['-1','1.01','abc','Infinity','']) assert.throws(()=>build('custom',invalid));
  assert.ok(build('1').includes('YTDLP=("$HOME/yt-dlp-story-test/bin/yt-dlp")'));
+ const collection=B.build({links:'https://instagram.com/stories/story.account',settings:{...B.defaults,mode:'frame'},selection:{only:'2'}}).command;
+ assert.ok(collection.includes('SELECT=(--playlist-items "2")'));
 });
 test('three sections are options of one process and use numbered filenames',()=>{
  const r=B.build(input({},[{start:'27',end:'45'},{start:'52',end:'Son'},{start:'75',end:'90'}]));
