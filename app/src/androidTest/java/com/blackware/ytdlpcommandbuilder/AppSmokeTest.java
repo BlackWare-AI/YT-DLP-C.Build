@@ -80,7 +80,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             assertTrue("System create-document intent was requested",monitor.getHits()>0);
             if (backup) {
                 org.json.JSONObject exported=new org.json.JSONObject(text).getJSONObject("state");
-                org.json.JSONObject saved=new org.json.JSONObject(getInstrumentation().getTargetContext().getSharedPreferences("builder",0).getString("state",""));
+                org.json.JSONObject saved=new org.json.JSONObject((String)new org.json.JSONTokener(js("Android.getState()")).nextValue());
                 for (String key : new String[]{"settings","selection","cuts","links","history","schema","notes","newLink"})
                     assertEquals("Backup must preserve "+key,saved.get(key).toString(),exported.get(key).toString());
             } else assertTrue("Native TXT output must contain complete commands",text.contains("--download-sections") && text.contains("user.name"));
@@ -103,7 +103,7 @@ public final class AppSmokeTest extends InstrumentationTestCase {
     }
     public void testOfflineLaunchCommandsPersistenceAndHistory() throws Exception {
         getInstrumentation().getTargetContext().getSharedPreferences("builder",0).edit().clear().commit();
-        for (String name : new String[]{"builder-state.json","builder-state-backup.json"})
+        for (String name : new String[]{"builder-state.json","builder-state-backup.json","builder-draft.json","builder-draft-backup.json"})
             for (String suffix : new String[]{"",".new",".bak"}) new java.io.File(getInstrumentation().getTargetContext().getFilesDir(),name+suffix).delete();
         launch();
         assertTrue("Launcher icon must be packaged",getInstrumentation().getTargetContext().getApplicationInfo().icon!=0);
