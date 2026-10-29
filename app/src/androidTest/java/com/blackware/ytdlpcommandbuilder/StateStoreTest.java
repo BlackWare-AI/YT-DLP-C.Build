@@ -90,6 +90,22 @@ public final class StateStoreTest extends InstrumentationTestCase {
         FileOutputStream out=file.startWrite();out.write('{');out.close();
         assertEquals("last durable edit",new JSONObject(new DurableStateStore(directory,preferences).read()).getString("notes"));
     }
+    public void testNewReaderWaitsForBackupWriterAcrossStoreInstances() throws Exception {
+        String current=payload("shared backup lock");assertTrue(store.save(current));awaitBackup(current);
+        java.lang.reflect.Field field=DurableStateStore.class.getDeclaredField("backupLock");field.setAccessible(true);
+        Object lock=field.get(store);
+        java.util.concurrent.CountDownLatch started=new java.util.concurrent.CountDownLatch(1),done=new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicReference<String> recovered=new java.util.concurrent.atomic.AtomicReference<>();
+        Thread reader=new Thread(()->{started.countDown();try {recovered.set(new DurableStateStore(directory,preferences).read());}finally{done.countDown();}});
+        boolean waited;
+        synchronized(lock) {
+            reader.start();assertTrue(started.await(3,java.util.concurrent.TimeUnit.SECONDS));
+            waited=!done.await(200,java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        assertTrue(done.await(3,java.util.concurrent.TimeUnit.SECONDS));
+        assertTrue("A recreated store must share the backup writer lock",waited);
+        assertEquals(current,recovered.get());
+    }
     public void testLegacyMigrationAndRedundantCopies() throws Exception {
         String old=payload("legacy notes");
         preferences.edit().putString("state",old).commit();
