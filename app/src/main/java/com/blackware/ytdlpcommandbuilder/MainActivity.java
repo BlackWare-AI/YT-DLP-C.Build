@@ -129,6 +129,7 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void checkUpdates() { runOnUiThread(() -> updater.check()); }
         @JavascriptInterface public String getState() { return stateStore.read(); }
         @JavascriptInterface public boolean saveState(String value) { return stateStore.save(value); }
+        @JavascriptInterface public boolean saveDraftState(String value) { return stateStore.saveDraft(value); }
         @JavascriptInterface public String readClipboard() {
             FutureTask<String> task = new FutureTask<>(() -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
