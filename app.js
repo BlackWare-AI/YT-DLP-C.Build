@@ -183,6 +183,8 @@ const english={
   "stories/hesap/123\nBiçim: V+S / V / S / SClip\nÖzel istek: …": "stories/username/123\nFormat: V+S / V / S / SClip\nSpecial request: …"
 };
 const locale=()=>language==='en' ? 'en-US' : 'tr-TR';
+const quantity=(n,tr,en)=>n+(language==='en' ? ' '+en+(n===1 ? '' : 's') : tr);
+const linkCount=n=>quantity(n,' bağlantı','link');
 function t(value) {
   if(language!=='en' || typeof value!=='string')return value;
   if(Object.prototype.hasOwnProperty.call(english,value))return english[value];
@@ -305,7 +307,7 @@ function renderButtons() {
 function renderCuts() {
   $('cuts').textContent='';
   $('cutLabels').hidden=!state.cuts.length;
-  $('cutCount').textContent=state.cuts.length ? state.cuts.length+t(' kesit') : t('Tam video');
+  $('cutCount').textContent=state.cuts.length ? quantity(state.cuts.length,' kesit','segment') : t('Tam video');
   $('fullVideo').disabled=!state.cuts.length;
   $('cutHint').textContent=state.cuts.length ? t('Saniye gir; sondan saymak için -3 / inf kullan. Tüm linkler ve kesitler tek komutta, çıktılar ayrı dosyalarda. Yeniden kodlama zorlanmaz; başlangıç anahtar kareye kayabilir.') : t('Tam video seçili. İstersen birden fazla kesit ekleyebilirsin.');
   state.cuts.forEach((c,i) => {
@@ -316,18 +318,18 @@ function renderCuts() {
       inp.oninput=()=>{ c[key]=inp.value; save(); preview(); }; row.append(inp);
     }
     const del=document.createElement('button'); del.textContent='×';
-    del.setAttribute('aria-label',t('Kesit ')+(i+1)+t(' sil'));
+    del.setAttribute('aria-label',language==='en' ? 'Delete segment '+(i+1) : 'Kesit '+(i+1)+' sil');
     del.onclick=()=>{ state.cuts.splice(i,1); renderCuts(); save(); preview(); };
     row.append(del); $('cuts').append(row);
   });
 }
 function renderNotesCount() {
-  $('notesCount').textContent=Builder.countNoteLinks(state.notes)+t(' bağlantı');
+  $('notesCount').textContent=linkCount(Builder.countNoteLinks(state.notes));
 }
 let renderedLinksKey=null;
 function renderLinks(urls) {
   const key=language+JSON.stringify(urls);if(key===renderedLinksKey)return;renderedLinksKey=key;
-  $('count').textContent=urls.length+t(' bağlantı');
+  $('count').textContent=linkCount(urls.length);
   $('linkList').textContent='';
   urls.forEach((url,i)=>{
     const u=new URL(url), parts=u.pathname.split('/').filter(Boolean);
@@ -338,7 +340,7 @@ function renderLinks(urls) {
     title.textContent=parts[0]==='stories' ? '@'+parts[1]+' · Story' : (['reel','reels'].includes(parts[0]) ? 'Reels · '+parts[1] : u.hostname);
     const link=document.createElement('small');link.textContent=url;link.title=url;
     meta.append(title,link);
-    const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label',t('Bağlantı ')+(i+1)+t(' sil'));
+    const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label',language==='en' ? 'Delete link '+(i+1) : 'Bağlantı '+(i+1)+' sil');
     remove.onclick=()=>{state.links=Builder.removeUrl(state.links,url);$('links').value=state.links;save();preview();};
     row.append(index,meta,remove);$('linkList').append(row);
   });
@@ -356,7 +358,7 @@ function preview() {
     const result=Builder.build({...state,language});
     renderLinks(result.urls);renderSelection(result.urls);
     $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=copying;
-    $('commandCount').textContent=result.commandCount+t(' komut');$('commandTitle').textContent=t('Komut hazır');
+    $('commandCount').textContent=quantity(result.commandCount,' komut','command');$('commandTitle').textContent=t('Komut hazır');
     return result;
   } catch(e) {
     const urls=Builder.parseUrls(state.links,true);
@@ -385,7 +387,7 @@ function exportText(text,filename) {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function historyText(records) {
-  return records.map(h=>new Date(h.date).toLocaleString(locale())+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+t(' bağlantı | ')+h.mode+' | '+h.engine+
+  return records.map(h=>new Date(h.date).toLocaleString(locale())+' | '+linkCount(Array.isArray(h.urls) ? h.urls.length : h.count)+' | '+h.mode+' | '+h.engine+
     t('\nYalnızca komut oluşturuldu ve kopyalandı.\n')+(h.urls || []).join('\n')+'\n'+
     (h.snapshot ? JSON.stringify(h.snapshot.settings,null,2)+t('\nÖğe seçimi: ')+JSON.stringify(h.snapshot.selection || {})+t('\nKesitler: ')+JSON.stringify(h.snapshot.cuts)+'\n' : '')+h.command).join('\n\n');
 }
@@ -413,7 +415,7 @@ function showHistory() {
     if (key!==day) { const title=document.createElement('h3'); title.textContent=d.toLocaleDateString(locale(),{day:'numeric',month:'long',year:'numeric'}); $('history').append(title); day=key; }
     const item=document.createElement('details'); item.className='history-item';
     const summary=document.createElement('summary');
-    summary.textContent=d.toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+t(' bağlantı | ')+
+    summary.textContent=d.toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' | '+linkCount(Array.isArray(h.urls) ? h.urls.length : h.count)+' | '+
       ({av:t('Video + Ses'),video:h.snapshot && h.snapshot.schema===2 ? t('Sessiz Video') : t('Video + Ses'),audio:t('Ses'),still:'StillClip',frame:'Frame'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?t('Normal'):t('Deneysel'));
     item.append(summary);
     let loaded=false;
@@ -448,7 +450,7 @@ function showNotesDailyHistory() {
     const title=document.createElement('summary');
     const [year,month,day]=record.date.split('-').map(Number);
     title.textContent=new Date(year,month-1,day).toLocaleDateString(locale(),{day:'numeric',month:'long',year:'numeric'})+
-      ' · '+Builder.countNoteLinks(record.notes||'')+t(' bağlantı');
+      ' · '+linkCount(Builder.countNoteLinks(record.notes||''));
     section.append(title);
     section.addEventListener('toggle',()=>{
       if(!section.open || section.querySelector('pre'))return;
@@ -486,7 +488,7 @@ function appendLinks(text, fromClipboard) {
     state.links=(state.links+'\n'+added.join('\n')).trim();
     $('links').value=state.links; persist(); preview();
   }
-  $('linkStatus').textContent=added.length ? added.length+t(' bağlantı eklendi.') : t('Bu bağlantılar zaten listede.');
+  $('linkStatus').textContent=added.length ? (language==='en' ? linkCount(added.length)+' added.' : added.length+' bağlantı eklendi.') : t('Bu bağlantılar zaten listede.');
 }
 $('addLink').onclick=()=>{
   try { appendLinks($('newLink').value,false); state.newLink=''; $('newLink').value='';save(); }

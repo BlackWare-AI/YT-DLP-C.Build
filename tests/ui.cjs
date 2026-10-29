@@ -55,7 +55,8 @@ const root=path.resolve(__dirname,'..');
   await page.setViewportSize({width:390,height:844});
 
   // Language switching changes product copy only, preserving all drafts and archives.
-  const langPage=await context.newPage();
+  const langContext=await browser.newContext({viewport:{width:390,height:844}});
+  const langPage=await langContext.newPage();
   await langPage.goto(url);
   await langPage.fill('#links','https://instagram.com/stories/example.user');
   await langPage.evaluate(()=>{
@@ -71,7 +72,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await langPage.textContent('#languageBtn'),'TR');
   assert.equal(await langPage.textContent('#checkUpdate'),'Update');
   assert.equal(await langPage.locator('#copy').innerText(),'Copy command');
-  assert.equal(await langPage.textContent('#count'),'1 links');
+  assert.equal(await langPage.textContent('#count'),'1 link');
   assert.match(await langPage.textContent('#itemScope'),/Positions follow/);
   assert.equal(await langPage.textContent('#output'),beforeCommand);
   assert.equal(await langPage.evaluate(()=>JSON.stringify({settings:state.settings,links:state.links,notes:state.notes,cuts:state.cuts,history:state.history,notesDailyHistory:state.notesDailyHistory})),beforeLanguage);
@@ -129,7 +130,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await langPage.getAttribute('html','lang'),'tr');
   assert.equal(await langPage.textContent('#checkUpdate'),'Güncelle');
   assert.match(await langPage.textContent('#output'),/Başarılı JPG:/);
-  await langPage.close();
+  await langContext.close();
 
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
   assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));

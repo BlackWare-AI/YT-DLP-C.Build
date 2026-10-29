@@ -34,4 +34,4 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 html.history-open,html.history-open body{overflow:hidden!important;overscroll-behavior:none}html.history-open body{position:fixed;top:var(--history-scroll-top);left:0;right:0;width:100%}#dialog,#history,#notesDailyHistory,#dialog pre{overscroll-behavior:contain}
 
 #checkUpdate{padding:8px 4px;text-align:center;margin-left:auto;overflow-wrap:normal}#languageBtn{font-size:13px;font-weight:600}
-@media(max-width:350px){.app-footer-header{gap:4px}}
+@media(max-width:350px){.app-footer-header{gap:2px}#checkUpdate{padding-inline:2px}}
