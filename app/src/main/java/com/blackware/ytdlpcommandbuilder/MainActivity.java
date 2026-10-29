@@ -118,7 +118,7 @@ public final class MainActivity extends Activity {
             }
         });
         updater = new UpdateController(this, (message, busy) -> web.evaluateJavascript(
-            "window.setUpdateStatus && window.setUpdateStatus(" + org.json.JSONObject.quote(message) + "," + busy + ")", null));
+            "window.setUpdateStatus && window.setUpdateStatus(" + org.json.JSONObject.quote(message) + "," + busy + "," + (updater!=null && updater.hasUpdate()) + ")", null));
         web.addJavascriptInterface(new Bridge(), "Android");
         root.addView(web, new FrameLayout.LayoutParams(-1,-1));
         setContentView(root);

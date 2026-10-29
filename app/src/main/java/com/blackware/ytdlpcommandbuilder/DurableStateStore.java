@@ -21,7 +21,7 @@ final class DurableStateStore {
     private Snapshot cached;
     private boolean readFailure;
     private final DraftStateStore drafts;
-    private final Object backupLock = new Object();
+    private static final Object backupLock = new Object();
     private final AtomicReference<Snapshot> pendingBackup = new AtomicReference<>();
     private final AtomicBoolean backupScheduled = new AtomicBoolean();
     private final ExecutorService backupWriter = Executors.newSingleThreadExecutor(r -> {
