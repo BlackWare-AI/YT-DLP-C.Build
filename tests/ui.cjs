@@ -17,6 +17,7 @@ const root=path.resolve(__dirname,'..');
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
   const url='http://127.0.0.1:'+server.address().port;
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
   await page.goto(url);assert.equal(await page.locator('#cuts .cut').count(),0);
   assert.equal(await page.getAttribute('#modes [data-value=av]','aria-pressed'),'true');
   assert.equal(await page.getAttribute('#modes [data-value=frame]','aria-pressed'),'false');
@@ -47,7 +48,8 @@ const root=path.resolve(__dirname,'..');
     assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left && bounds[2].right<=bounds[3].left,'footer controls do not overlap');
     assert.ok(bounds[1].width<=118 && bounds[1].width>0);
     assert.equal(bounds[2].width,bounds[3].width);
-    assert.equal(await page.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false);
+    await page.locator('.app-footer-header').screenshot({path:path.join(root,'test-results/footer-tr-'+width+'.png')});
+    assert.equal(await page.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false,JSON.stringify({width,bounds}));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   }
   await page.setViewportSize({width:390,height:844});
@@ -112,6 +114,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await langPage.getAttribute('html','lang'),'en');
   for(const width of [320,390,650]) {
     await langPage.setViewportSize({width,height:844});
+    await langPage.locator('.app-footer-header').screenshot({path:path.join(root,'test-results/footer-en-'+width+'.png')});
     assert.equal(await langPage.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false);
     assert.equal(await langPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   }
@@ -119,6 +122,7 @@ const root=path.resolve(__dirname,'..');
     await langPage.click('#modes [data-value='+mode+']');
     assert.doesNotMatch(await langPage.textContent('#modeHint'),/[çğıöşüÇĞİÖŞÜ]/);
   }
+  await langPage.screenshot({path:path.join(root,'test-results/english-frame.png'),fullPage:true});
   assert.match(await langPage.textContent('#output'),/Successful JPGs:/);
   assert.doesNotMatch(await langPage.textContent('#output'),/Başarılı|başarısız|bulunamadı|çözünürlüğü/);
   await langPage.click('#languageBtn');
