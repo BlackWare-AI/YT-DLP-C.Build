@@ -32,6 +32,16 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('#checkUpdate').isDisabled(),true);
   await page.evaluate(()=>window.setUpdateStatus('',false));
   assert.equal(await page.evaluate(()=>document.querySelector('main').lastElementChild.id),'updateSection');
+  assert.equal(await page.evaluate(()=>document.getElementById('checkUpdate').parentElement.className),'app-footer-header');
+  for(const width of [320,390,650]) {
+    await page.setViewportSize({width,height:844});
+    const bounds=await page.evaluate(()=>Array.from(document.querySelector('.app-footer-header').children).map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};}));
+    assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left,'footer controls do not overlap');
+    assert.ok(bounds[1].width<=160 && bounds[1].width>0);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }
+  await page.setViewportSize({width:390,height:844});
+
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
   assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));
   const markers=await page.evaluate(()=>['#engines button.active','#modes button.active'].map(selector=>{
