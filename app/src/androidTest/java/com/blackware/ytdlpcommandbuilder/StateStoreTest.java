@@ -54,6 +54,42 @@ public final class StateStoreTest extends InstrumentationTestCase {
         while(!expected.equals(preferences.getString("state","")) && System.currentTimeMillis()<end) Thread.sleep(10);
         assertEquals(expected,preferences.getString("state",""));
     }
+    private String draft(String notes) throws Exception {
+        JSONObject value=new JSONObject(payload(notes));value.remove("history");value.remove("notesDailyHistory");return value.toString();
+    }
+    public void testSmallDraftKeepsArchiveAndRecoversAfterRestart() throws Exception {
+        JSONObject base=new JSONObject(payload("old"));
+        base.put("notesDailyHistory",new JSONArray().put(new JSONObject().put("date","2026-10-28").put("notes","daily")));
+        assertTrue(store.save(base.toString()));awaitBackup(base.toString());
+        byte[] archive=java.nio.file.Files.readAllBytes(new File(directory,"builder-state.json").toPath());
+        assertTrue(store.saveDraft(draft("latest typed notes")));
+        assertTrue(java.util.Arrays.equals(archive,java.nio.file.Files.readAllBytes(new File(directory,"builder-state.json").toPath())));
+        store=new DurableStateStore(directory,preferences);
+        JSONObject recovered=new JSONObject(store.read());
+        assertEquals("latest typed notes",recovered.getString("notes"));
+        assertEquals(base.getJSONArray("history").toString(),recovered.getJSONArray("history").toString());
+        assertEquals(base.getJSONArray("notesDailyHistory").toString(),recovered.getJSONArray("notesDailyHistory").toString());
+        corrupt("builder-draft.json");
+        assertEquals("latest typed notes",new JSONObject(store.read()).getString("notes"));
+        corrupt("builder-draft-backup.json");
+        assertEquals("unreadable persistent state",store.read());
+        assertFalse(store.save(payload("must preserve")));assertFalse(store.saveDraft(draft("must preserve")));
+    }
+    public void testFullSnapshotSupersedesDraftWithoutResurrectingClearedLinks() throws Exception {
+        assertTrue(store.save(payload("base")));assertTrue(store.saveDraft(draft("typed")));
+        JSONObject next=new JSONObject(payload("typed")).put("links","").put("history",new JSONArray());
+        assertTrue(store.save(next.toString()));awaitBackup(next.toString());
+        assertFalse(new File(directory,"builder-draft.json").exists());
+        corrupt("builder-state.json");
+        JSONObject recovered=new JSONObject(new DurableStateStore(directory,preferences).read());
+        assertEquals("",recovered.getString("links"));assertEquals(0,recovered.getJSONArray("history").length());
+    }
+    public void testInterruptedDraftWriteKeepsPreviousEdit() throws Exception {
+        assertTrue(store.save(payload("base")));assertTrue(store.saveDraft(draft("last durable edit")));
+        AtomicFile file=new AtomicFile(new File(directory,"builder-draft.json"));
+        FileOutputStream out=file.startWrite();out.write('{');out.close();
+        assertEquals("last durable edit",new JSONObject(new DurableStateStore(directory,preferences).read()).getString("notes"));
+    }
     public void testLegacyMigrationAndRedundantCopies() throws Exception {
         String old=payload("legacy notes");
         preferences.edit().putString("state",old).commit();

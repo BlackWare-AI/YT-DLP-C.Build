@@ -33,10 +33,17 @@ state.selection={only:'',after:'',before:'',...state.selection};
 state.notes=state.notes===undefined ? '' : state.notes;
 state.newLink=state.newLink===undefined ? '' : state.newLink;
 state.notesDailyHistory=Array.isArray(state.notesDailyHistory) ? state.notesDailyHistory : [];
+let savedHistory=null, savedDailyHistory=null;
 function persist() {
   if(storageError) throw Error(storageError);
   if(native) {
-    if(!native.saveState(JSON.stringify(state))) throw Error('Veriler kaydedilemedi.');
+    let saved;
+    if(typeof native.saveDraftState==='function' && savedHistory===state.history && savedDailyHistory===state.notesDailyHistory) {
+      const {history,notesDailyHistory,...draft}=state;
+      saved=native.saveDraftState(JSON.stringify(draft));
+    } else saved=native.saveState(JSON.stringify(state));
+    if(!saved) throw Error('Veriler kaydedilemedi.');
+    savedHistory=state.history;savedDailyHistory=state.notesDailyHistory;
   } else {
     state.storageRevision=Math.max(Date.now(),(state.storageRevision || 0)+1);
     const raw=JSON.stringify(state);let saved=false;
@@ -85,7 +92,9 @@ function renderCuts() {
 function renderNotesCount() {
   $('notesCount').textContent=Builder.countNoteLinks(state.notes)+' bağlantı';
 }
+let renderedLinksKey=null;
 function renderLinks(urls) {
+  const key=JSON.stringify(urls);if(key===renderedLinksKey)return;renderedLinksKey=key;
   $('count').textContent=urls.length+' bağlantı';
   $('linkList').textContent='';
   urls.forEach((url,i)=>{
@@ -112,9 +121,8 @@ function renderSelection(urls) {
 }
 function preview() {
   try {
-    const urls=Builder.parseUrls(state.links);
-    renderLinks(urls);renderSelection(urls);
     const result=Builder.build(state);
+    renderLinks(result.urls);renderSelection(result.urls);
     $('output').textContent=result.command; $('error').textContent=''; $('copy').disabled=copying;
     $('commandCount').textContent=result.commandCount+' komut';$('commandTitle').textContent='Komut hazır';
     return result;
@@ -176,6 +184,9 @@ function showHistory() {
     summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+' bağlantı | '+
       ({av:'Video + Ses',video:h.snapshot && h.snapshot.schema===2 ? 'Sessiz Video' : 'Video + Ses',audio:'Ses',still:'StillClip',frame:'Frame'}[h.mode] || h.mode)+' | '+(h.engine==='normal'?'Normal':'Deneysel');
     item.append(summary);
+    let loaded=false;
+    item.addEventListener('toggle',()=>{
+    if(!item.open || loaded)return;loaded=true;
     const pre=document.createElement('pre'); pre.textContent=historyText([h]); item.append(pre);
     const actions=document.createElement('div'); actions.className='group';
     actions.append(button('Kopyala',()=>{
@@ -191,7 +202,9 @@ function showHistory() {
         const old=state.history; state.history=old.filter((_,n)=>n!==i);
         try { persist(); } catch(e) { state.history=old; throw e; } showHistory();
       }));
-    item.append(actions); $('history').append(item);
+    item.append(actions);
+    });
+    $('history').append(item);
   });
 }
 function showNotesDailyHistory() {
@@ -204,8 +217,12 @@ function showNotesDailyHistory() {
     const [year,month,day]=record.date.split('-').map(Number);
     title.textContent=new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+
       ' · '+Builder.countNoteLinks(record.notes||'')+' bağlantı';
-    const body=document.createElement('pre');body.textContent=record.notes;
-    section.append(title,body);root.append(section);
+    section.append(title);
+    section.addEventListener('toggle',()=>{
+      if(!section.open || section.querySelector('pre'))return;
+      const body=document.createElement('pre');body.textContent=record.notes;section.append(body);
+    });
+    root.append(section);
   }
 }
 function showHistoryPanel(panel) {
@@ -340,7 +357,7 @@ function cleanNoteUrls() {
   editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();return true;
 }
 $('notes').oninput=e=>{
-  if(e.inputType==='insertFromPaste') cleanNoteUrls();
+  if(e.inputType==='insertFromPaste' && cleanNoteUrls())return;
   saveNotes();
 };
 $('notes').addEventListener('blur',cleanNoteUrls);
@@ -406,6 +423,7 @@ $('notesBtn').onclick=()=>{notesScrollY=window.scrollY;document.documentElement.
 $('notesClose').onclick=closeNotes;
 $('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();});
 window.handleBack=()=>{
+  if($('confirmDialog').open) {$('confirmCancel').click();return true;}
   if($('notesDialog').open) {closeNotes();return true;}
   if($('dialog').open) {closeHistory();return true;}
   return false;

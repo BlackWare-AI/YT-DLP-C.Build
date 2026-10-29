@@ -19,6 +19,8 @@ final class DurableStateStore {
     private final AtomicFile secondary;
     private final SharedPreferences preferences;
     private Snapshot cached;
+    private boolean readFailure;
+    private final DraftStateStore drafts;
     private final Object backupLock = new Object();
     private final AtomicReference<Snapshot> pendingBackup = new AtomicReference<>();
     private final AtomicBoolean backupScheduled = new AtomicBoolean();
@@ -30,6 +32,7 @@ final class DurableStateStore {
         primary = new AtomicFile(new File(directory, "builder-state.json"));
         secondary = new AtomicFile(new File(directory, "builder-state-backup.json"));
         this.preferences = preferences;
+        drafts = new DraftStateStore(directory);
     }
 
     private static final class Snapshot {
@@ -96,7 +99,10 @@ final class DurableStateStore {
 
     String read() { synchronized (LOCK) {
         Snapshot snapshot = latest(); cached = snapshot;
-        if (snapshot != null) return snapshot.payload;
+        if (snapshot != null) {
+            try { String merged=drafts.merge(snapshot.revision,snapshot.payload); validate(merged); return merged; }
+            catch(Exception invalid) { readFailure=true; return "unreadable persistent state"; }
+        }
         // Fail closed in JS: unreadable records must never be replaced with defaults.
         return hasStoredData() ? "unreadable persistent state" : "";
     } }
@@ -118,6 +124,7 @@ final class DurableStateStore {
     }
 
     boolean save(String payload) { synchronized (LOCK) {
+        if(readFailure) return false;
         try {
             validate(payload);
             Snapshot old = cached == null ? latest() : cached;
@@ -128,11 +135,19 @@ final class DurableStateStore {
             // The acknowledged primary snapshot is written and verified synchronously on every edit.
             if (!writeFile(primary, envelope, next)) return false;
             cached = next;
+            drafts.clear();
             // Redundant recovery copies are coalesced off the WebView bridge thread.
             pendingBackup.set(next);
             scheduleBackup();
             return true;
         } catch (Exception failure) { return false; }
+    } }
+
+    boolean saveDraft(String payload) { synchronized (LOCK) {
+        if(readFailure) return false;
+        Snapshot base=cached==null ? latest() : cached;
+        if(base==null) return false;
+        return drafts.save(base.revision,payload);
     } }
 
     private void scheduleBackup() {
