@@ -1,5 +1,7 @@
 ## YT-DLP Command Builder 1.1.3
 
+- ICC renk profili bulunan Instagram videolarında çözünürlük okumasının geçerli videoyu reddetmesi düzeltildi.
+
 - Frame, ilk saniyeden 0,5 saniyeye veya özel zamana en yakın gerçek kareyi yüksek kaliteli JPG olarak çıkarır. Hedef çıkarılamazsa ilk geçerli kareyi dener.
 - Yalnızca JPG saklanır. Geçici videolar otomatik temizlenir; işlem sonunda başarı/başarısızlık sayıları ve kısa hata nedenleri gösterilir.
 - Frame seçenekleri 0,5 saniye ve özel zaman olarak sadeleştirildi. Açıklama kısaltıldı.

@@ -94,6 +94,18 @@ test('Frame chooses the nearest real frame at 1/24/30/60 FPS, short clips and va
  }
  assert.equal(fs.readFileSync(f.env.FRAME_ENCODINGS,'utf8').trim().split('\n').length,count,'one JPEG encode per successful item');
 });
+test('Frame accepts VP9 MP4 with ICC stream side data and validates its JPG dimensions',{skip:!ffmpegAvailable},t=>{
+ const f=frameFixture(t);
+ const source=path.join(f.root,'icc.mkv');
+ fs.writeFileSync(source,Buffer.from(fs.readFileSync(path.join(__dirname,'fixtures/vp9-icc.mp4.base64'),'utf8'),'base64'));
+ const old=execFileSync('ffprobe',['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','csv=s=x:p=0',source],{encoding:'utf8'}).trim();
+ assert.notEqual(old,'96x64','fixture exercises ICC side-data CSV decoration');
+ const result=f.run(undefined,{}, {FRAME_KIND:'icc'});
+ assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/Başarılı JPG: 1 \| Başarısız JPG: 0/);
+ const jpg=path.join(f.output,'account-20261029-1530-01.jpg');
+ assert.deepEqual(fs.readFileSync(jpg),f.expected(source,.5));
+ assert.equal(fs.readFileSync(f.env.FRAME_ENCODINGS,'utf8').trim().split('\n').length,1);f.clean();
+});
 test('Frame eight URLs produce eight JPGs, preserve prior bytes, and keep no temporary videos',{skip:!ffmpegAvailable},t=>{
  const f=frameFixture(t);fs.mkdirSync(f.output,{recursive:true});
  const prior=path.join(f.output,'account-20261029-1530-01.jpg');fs.writeFileSync(prior,'existing user JPG');
