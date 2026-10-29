@@ -5,17 +5,21 @@ window.NotesUI={attach(editor) {
   const layer=document.createElement('div');
   layer.className='notes-separator-layer';layer.setAttribute('aria-hidden','true');
   editor.after(layer);
-  let frame=0,positions=[];
+  let frame=0,positions=[],measuredKey=null;
   function scroll() {
     for(let i=0;i<layer.children.length;i++)
       layer.children[i].style.transform='translateY('+(positions[i]-editor.scrollTop)+'px)';
   }
   function measure() {
-    frame=0;layer.replaceChildren();positions=[];
-    if(!editor.closest('dialog').open || !editor.clientWidth) return;
+    frame=0;
+    if(!editor.closest('dialog').open || !editor.clientWidth) {measuredKey=null;return;}
+    const style=getComputedStyle(editor);
+    const key=JSON.stringify([editor.value,editor.clientWidth,style.font,style.padding,style.letterSpacing]);
+    if(key===measuredKey) {scroll();return;}
+    measuredKey=key;layer.replaceChildren();positions=[];
     const offsets=Builder.noteSeparatorOffsets(editor.value);
     if(!offsets.length) return;
-    const style=getComputedStyle(editor),mirror=document.createElement('div');
+    const mirror=document.createElement('div');
     Object.assign(mirror.style,{position:'fixed',left:'-10000px',top:'0',visibility:'hidden',
       boxSizing:'border-box',width:editor.clientWidth+'px',whiteSpace:'pre-wrap',overflowWrap:'break-word',
       font:style.font,lineHeight:style.lineHeight,letterSpacing:style.letterSpacing,

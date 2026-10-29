@@ -67,8 +67,8 @@ const root=path.resolve(__dirname,'..');
    for(const width of [320,390,650]) {
     await recovered.setViewportSize({width,height:844});await recovered.clock.runFor(50);
     assert.equal(await recovered.locator('.notes-group-divider').count(),2);
-    const dimensions=await recovered.locator('.notes-group-divider').evaluateAll(nodes=>nodes.map(node=>({height:node.clientHeight,line:parseFloat(getComputedStyle(node).lineHeight),overflow:getComputedStyle(node).overflow,select:getComputedStyle(node).userSelect})));
-    assert.ok(dimensions.every(r=>Math.abs(r.height-r.line)<=1 && r.overflow==='hidden' && r.select==='none'));
+    const dimensions=await recovered.evaluate(()=>Array.from(document.querySelectorAll('.notes-group-divider'),node=>({height:node.clientHeight,line:parseFloat(getComputedStyle(node).lineHeight),overflow:getComputedStyle(node).overflow,select:getComputedStyle(node).userSelect})));
+    assert.ok(dimensions.every(r=>Math.abs(r.height-r.line)<=1 && r.overflow==='hidden' && r.select==='none'),JSON.stringify({edition,width,dimensions}));
     await recovered.locator('#notes').evaluate(el=>{el.scrollTop=100;el.dispatchEvent(new Event('scroll'));});
     assert.equal(await recovered.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
    }
