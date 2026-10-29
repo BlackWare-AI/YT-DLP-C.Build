@@ -1,9 +1,13 @@
 plugins { id("com.android.application") }
+val englishEdition = providers.gradleProperty("appLanguage").orNull == "en"
 android {
+    buildFeatures { buildConfig = true }
     namespace = "com.blackware.ytdlpcommandbuilder"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.blackware.ytdlpcommandbuilder"
+        applicationId = if (englishEdition) "com.blackware.ytdlpcommandbuilder.en" else "com.blackware.ytdlpcommandbuilder"
+        buildConfigField("boolean", "ENGLISH_EDITION", englishEdition.toString())
+        resValue("string", "app_name", if (englishEdition) "YT-DLP Command Builder EN" else "YT-DLP Command Builder")
         minSdk = 29
         targetSdk = 35
         versionCode = 14
@@ -32,7 +36,8 @@ android {
     useLibrary("android.test.base")
 }
 val copyWebAssets by tasks.registering(Sync::class) {
-    from(rootProject.files("index.html", "engine.js", "app.js", "styles.css"))
+    from(rootProject.files("engine.js", "styles.css"))
+    from(rootProject.files(if (englishEdition) "editions/en/index.html" else "index.html", if (englishEdition) "editions/en/app.js" else "app.js"))
     into(layout.buildDirectory.dir("generated/webAssets"))
 }
 tasks.named("preBuild") { dependsOn(copyWebAssets) }

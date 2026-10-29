@@ -34,12 +34,12 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('#updateSection').count(),0);
   assert.equal(await page.textContent('#checkUpdate'),'Güncelle');
   const updateStyle=()=>page.locator('#checkUpdate').evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,size:s.fontSize};});
-  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'14px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'15px'});
   await page.evaluate(()=>window.setUpdateStatus('Güncelleme mevcut: 1.1.3',false,true));
-  assert.deepEqual(await updateStyle(),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',size:'14px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',size:'15px'});
   assert.equal(await page.textContent('#checkUpdate'),'Güncelle');
   await page.evaluate(()=>window.setUpdateStatus('Uygulama güncel.',false,false));
-  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'14px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'15px'});
   assert.equal(await page.evaluate(()=>document.getElementById('checkUpdate').parentElement.className),'app-footer-header');
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});

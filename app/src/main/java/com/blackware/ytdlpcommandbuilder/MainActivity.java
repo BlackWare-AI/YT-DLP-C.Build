@@ -105,14 +105,14 @@ public final class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
                 new AlertDialog.Builder(MainActivity.this).setMessage(message)
-                    .setPositiveButton("Tamam", (d,w) -> result.confirm())
+                    .setPositiveButton(UiText.get(MainActivity.this,"Tamam","OK"), (d,w) -> result.confirm())
                     .setOnCancelListener(d -> result.cancel()).show();
                 return true;
             }
             @Override public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
                 new AlertDialog.Builder(MainActivity.this).setMessage(message)
-                    .setPositiveButton("Sil", (d,w) -> result.confirm())
-                    .setNegativeButton("Vazgeç", (d,w) -> result.cancel())
+                    .setPositiveButton(UiText.get(MainActivity.this,"Sil","Delete"), (d,w) -> result.confirm())
+                    .setNegativeButton(UiText.get(MainActivity.this,"Vazgeç","Cancel"), (d,w) -> result.cancel())
                     .setOnCancelListener(d -> result.cancel()).show();
                 return true;
             }
@@ -153,7 +153,7 @@ public final class MainActivity extends Activity {
         }
         @JavascriptInterface public void exportText(String text, String filename) {
             runOnUiThread(() -> {
-                if (exporting) { toast("Önce açık dışa aktarma işlemini bitirin."); return; }
+                if (exporting) { toast(UiText.get(MainActivity.this,"Önce açık dışa aktarma işlemini bitirin.","Finish the current export first.")); return; }
                 try {
                     try (FileOutputStream out = new FileOutputStream(exportFile())) {
                         out.write(text.getBytes(StandardCharsets.UTF_8));
@@ -164,7 +164,7 @@ public final class MainActivity extends Activity {
                     intent.putExtra(Intent.EXTRA_TITLE, filename.replaceAll("[^a-zA-Z0-9._-]", "_"));
                     exporting = true;
                     startActivityForResult(intent, EXPORT_TEXT);
-                } catch (Exception e) { exporting = false; toast("Dışa aktarma açılamadı."); }
+                } catch (Exception e) { exporting = false; toast(UiText.get(MainActivity.this,"Dışa aktarma açılamadı.","Could not open export.")); }
             });
         }
     }
@@ -179,11 +179,11 @@ public final class MainActivity extends Activity {
         if (request != EXPORT_TEXT) return;
         exporting = false;
         if (result != RESULT_OK || data == null || data.getData() == null) {
-            exportFile().delete(); toast("Dışa aktarma iptal edildi."); return;
+            exportFile().delete(); toast(UiText.get(MainActivity.this,"Dışa aktarma iptal edildi.","Export cancelled.")); return;
         }
         Uri destination = data.getData();
         File completed = new File(getCacheDir(), "export-" + System.nanoTime() + ".txt");
-        if (!exportFile().renameTo(completed)) { toast("TXT kaydedilemedi; yeniden deneyin."); return; }
+        if (!exportFile().renameTo(completed)) { toast(UiText.get(MainActivity.this,"TXT kaydedilemedi; yeniden deneyin.","Could not save TXT; try again.")); return; }
         new Thread(() -> {
             boolean success = false;
             try (FileInputStream in = new FileInputStream(completed);
@@ -195,7 +195,7 @@ public final class MainActivity extends Activity {
             } catch (Exception ignored) { /* User gets failure, never a false success. */ }
             completed.delete();
             final boolean done = success;
-            runOnUiThread(() -> toast(done ? "TXT dosyası kaydedildi." : "TXT kaydedilemedi; yeniden deneyin."));
+            runOnUiThread(() -> toast(done ? UiText.get(MainActivity.this,"TXT dosyası kaydedildi.","TXT file saved.") : UiText.get(MainActivity.this,"TXT kaydedilemedi; yeniden deneyin.","Could not save TXT; try again.")));
         }, "text-export").start();
     }
     private boolean keyboardVisible() {
@@ -220,9 +220,9 @@ public final class MainActivity extends Activity {
                 lastBackAt = 0;
                 web.evaluateJavascript("window.prepareExit && window.prepareExit()", saved -> {
                     if ("true".equals(saved)) finish();
-                    else toast("Veriler kaydedilemedi; uygulama açık tutuldu.");
+                    else toast(UiText.get(MainActivity.this,"Veriler kaydedilemedi; uygulama açık tutuldu.","Data could not be saved; the app was kept open."));
                 });
-            } else { lastBackAt = now; toast("Çıkmak için tekrar geri basın."); }
+            } else { lastBackAt = now; toast(UiText.get(MainActivity.this,"Çıkmak için tekrar geri basın.","Press Back again to exit.")); }
         });
     }
     @Override protected void onPause() { lastBackAt = 0; super.onPause(); }
