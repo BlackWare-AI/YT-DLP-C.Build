@@ -107,11 +107,24 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
             assertEquals(android.graphics.Color.rgb(245,245,245),installButton.getCurrentTextColor());
             assertEquals(android.graphics.Color.rgb(32,32,32),((android.graphics.drawable.GradientDrawable)installButton.getBackground()).getColor().getDefaultColor());
         });
-        android.graphics.Bitmap screenshot=getInstrumentation().getUiAutomation().takeScreenshot();
-        if(screenshot!=null) {
-            try(FileOutputStream out=new FileOutputStream(new File(activity.getCacheDir(),"update-offer.png"))) {screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}
-            screenshot.recycle();
-        }
+        // Render the laid-out dialog itself; a system screenshot can precede its first frame.
+        java.util.concurrent.atomic.AtomicBoolean laidOut=new java.util.concurrent.atomic.AtomicBoolean();
+        long deadline=android.os.SystemClock.uptimeMillis()+5000;
+        do {
+            main(()->{android.view.View decor=first.getWindow().getDecorView();laidOut.set(decor.isLaidOut() && decor.getWidth()>0 && decor.getHeight()>0);});
+            if(laidOut.get())break;
+            android.os.SystemClock.sleep(20);
+        } while(android.os.SystemClock.uptimeMillis()<deadline);
+        assertTrue("Update offer must lay out",laidOut.get());
+        AtomicReference<android.graphics.Bitmap> rendered=new AtomicReference<>();
+        main(()->{
+            android.view.View decor=first.getWindow().getDecorView();
+            android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(decor.getWidth(),decor.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);
+            decor.draw(new android.graphics.Canvas(image));rendered.set(image);
+        });
+        android.graphics.Bitmap screenshot=rendered.get();
+        try(FileOutputStream out=new FileOutputStream(new File(activity.getFilesDir(),"update-offer.png"))) {screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}
+        screenshot.recycle();
         // A second check while the offer is open must not download or stack a dialog.
         main(()->controller.check());getInstrumentation().waitForIdleSync();
         assertSame(first,offer());assertEquals(1,metadataRequests.get());assertEquals(0,apkRequests.get());
