@@ -82,10 +82,12 @@ const root=path.resolve(__dirname,'..');
     await recovered.locator('#notes').evaluate(el=>{el.scrollTop=100;el.dispatchEvent(new Event('scroll'));});
     assert.equal(await recovered.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
    }
-   await recovered.setViewportSize({width:390,height:844});
-   await recovered.fill('#notes',paste);await recovered.locator('#notes').blur();await recovered.clock.runFor(800);
+   // Capture a normal active tab; the fake clock above is only for archive timing tests.
+   const visual=await context.newPage();await visual.goto(url);await visual.click('#notesBtn');
+   await visual.fill('#notes',paste);await visual.locator('#notes').blur();
+   await visual.waitForFunction(()=>document.querySelectorAll('.notes-group-divider').length===2);
    fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
-   await recovered.screenshot({path:path.join(root,'test-results/notes-114-'+edition+'.png')});
+   await visual.screenshot({path:path.join(root,'test-results/notes-114-'+edition+'.png')});
    assert.deepEqual(errors,[]);await context.close();
    console.log('PASS '+edition+': cumulative unique notes, latest annotations, retained deletions, independent commands, no-op saves, dated draft recovery and non-copyable one-row dividers');
   }

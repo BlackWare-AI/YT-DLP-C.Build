@@ -62,10 +62,13 @@ const root=path.resolve(__dirname,'..');
     assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),true);
     const lockedTop=await page.locator('body').evaluate(el=>el.getBoundingClientRect().top);
     await page.mouse.move(2,400);await page.mouse.wheel(0,500);
+    // Playwright's wheel dispatch returns before the browser finishes processing it.
+    await page.waitForTimeout(150);
     assert.equal(await page.locator('body').evaluate(el=>el.getBoundingClientRect().top),lockedTop);
     if(close==='button') await page.click('#close');
     else if(close==='escape') await page.keyboard.press('Escape');
     else await page.evaluate(()=>window.handleBack());
+    await page.waitForTimeout(100); // Finish the dialog close/focus cycle before reopening.
     assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),false);
     assert.equal(await page.evaluate(()=>window.scrollY),450);
   }
