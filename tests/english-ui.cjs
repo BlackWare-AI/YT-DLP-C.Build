@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..');
 (async()=>{
  const server=http.createServer((req,res)=>{
   const name=req.url==='/'?'index.html':req.url.slice(1);
-  if(!['index.html','engine.js','app.js','styles.css'].includes(name)){res.writeHead(404);res.end();return;}
+  if(!['index.html','engine.js','app.js','styles.css','notes-ui.js'].includes(name)){res.writeHead(404);res.end();return;}
   res.setHeader('Content-Type',name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html');
   res.end(fs.readFileSync(path.join(root,['index.html','app.js'].includes(name)?'editions/en':'',name)));
  });
@@ -53,9 +53,9 @@ const root=path.resolve(__dirname,'..');
   await page.waitForSelector('.history-item button');
   assert.match(await page.locator('.history-item').innerText(),/Experimental/);
   assert.match(await page.locator('.history-item').innerText(),/Edit again/);
-  await page.click('#notesLogTab');await page.locator('.daily-note-item summary').click();
-  assert.match(await page.locator('.daily-note-item summary').innerText(),/October/);
-  assert.equal(await page.locator('.daily-note-item pre').innerText(),'Değişmeyen günlük notu');
+  await page.click('#notesLogTab');await page.locator('.daily-note-item summary').filter({hasText:'October 27, 2026'}).click();
+  assert.match(await page.locator('.daily-note-item summary').filter({hasText:'October 27, 2026'}).innerText(),/October/);
+  assert.equal(await page.locator('.daily-note-item pre').filter({hasText:'Değişmeyen günlük notu'}).innerText(),'Değişmeyen günlük notu');
   await page.click('#close');await page.click('#notesBtn');await page.click('#notesClear');
   assert.equal(await page.textContent('#confirmTitle'),'Clear Link Notes');
   assert.match(await page.textContent('#confirmMessage'),/Notes Log and command history will be kept/);

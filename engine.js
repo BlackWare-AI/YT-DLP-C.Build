@@ -104,6 +104,66 @@
     return groupTaggedNotes(separateNoteLinks(compactInstagramUrls(text)));
   }
   function cleanNotes(text) { return cleanNoteUrls(normalizeBareUsernames(text)); }
+  // These helpers never read command history: a daily archive contains only notes.
+  function noteLink(line) {
+    const match=String(line).match(/^\s*((?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)\/?)(?=\s|$)/i);
+    if(!match) return null;
+    const urls=parseUrls(match[1],true);
+    if(!urls.length) return null;
+    return urls[0].replace(/(\/stories\/)([^/]+)/i,(_,prefix,user)=>prefix+user.toLowerCase());
+  }
+  function mergeDailyNotes(previous,current) {
+    const entries=new Map();
+    for(const text of [previous,current]) {
+      let item=null;
+      for(const line of cleanNotes(text || '').split(/\r?\n/)) {
+        const link=noteLink(line);
+        if(link) {
+          item={key:link,lines:[line.trim()]};
+          // Map insertion order keeps the first position; the newest annotation wins.
+          entries.set(link,item);
+        } else if(line.trim()) {
+          if(item) item.lines.push(line);
+          else entries.set('text:'+line.trim(),{lines:[line]});
+        }
+      }
+    }
+    return groupTaggedNotes(Array.from(entries.values(),item=>item.lines.join('\n')).join('\n')).trim();
+  }
+  function spaceNoteGroups(text) {
+    const lines=String(text).split('\n');
+    // Only normalize gaps between link rows; keep free-form notes and trailing blank lines.
+    const rows=lines.filter((line,i)=>{
+      if(line.trim()) return true;
+      let before=i-1,after=i+1;
+      while(before>=0 && !lines[before].trim()) before--;
+      while(after<lines.length && !lines[after].trim()) after++;
+      return !(before>=0 && after<lines.length && noteLink(lines[before]) && noteLink(lines[after]));
+    });
+    const result=[];let tag=null;
+    for(const line of rows) {
+      const next=noteFormatTag(line);
+      if(next!==null) {
+        if(tag!==null && tag!==next && result.length && result[result.length-1].trim()) result.push('');
+        tag=next;
+      }
+      result.push(line);
+    }
+    return result.join('\n');
+  }
+  function noteSeparatorOffsets(text) {
+    const offsets=[];let position=0,tag=null,blank=null;
+    for(const line of String(text).split('\n')) {
+      const next=noteFormatTag(line);
+      if(next!==null) {
+        if(tag!==null && tag!==next && blank!==null) offsets.push(blank);
+        tag=next;
+      }
+      blank=line.trim() ? null : position;
+      position+=line.length+1;
+    }
+    return offsets;
+  }
   function parseUrls(text, skipInvalid) {
     const urls = [];
     const source = normalizeBareUsernames(String(text))
@@ -305,5 +365,5 @@
     return {command:args.join(' \\\n  '), urls, settings:s,
       cuts:['av','video'].includes(s.mode) ? cuts : [], selection:input.selection || {}, commandCount:1};
   }
-  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, normalizeBareUsernames, cleanNoteUrls, cleanNotes, countNoteLinks, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
+  return {defaults, normalizeSettings, quote, shellPath, collectionKind, selectionSpec, normalizeBareUsernames, cleanNoteUrls, cleanNotes, mergeDailyNotes, spaceNoteGroups, noteSeparatorOffsets, countNoteLinks, parseUrls, removeUrl, validateCut, template, storyMetadata, build};
 });

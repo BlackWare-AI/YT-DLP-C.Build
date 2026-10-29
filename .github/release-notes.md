@@ -1,21 +1,17 @@
-## YT-DLP Command Builder 1.1.3
+## YT-DLP Command Builder 1.1.4
 
-- Güncelle düğmesi 15 px yazı boyutuyla uygulama adı ile geçmiş simgesi arasındadır. Ayrı durum kutusu ve güncelleme teklifi penceresi kaldırıldı. Güncelleme varsa düğme beyaz/siyah olur; ikinci dokunuş APK indirmeyi başlatır.
+### Türkçe
+- Not Günlüğü yalnızca Link Notları’ndan beslenir. Temizlenmiş bağlantılar ve etiketler her gün tek kayıtta birikir; aynı URL tekrarlanmaz, en son etiket kullanılır.
+- Notlardan kaldırılan bağlantılar günlükte korunur. Mevcut etiket sıralaması günlükte de uygulanır. İşlem Geçmişi ve komut kopyalama bu günlüğe veri eklemez.
+- Kısa bekleme, notları kapatma, arka plana geçme ve çıkışta günlük kaydı denetlenir. 10 dakikalık kontrol sürer; değişmeyen kayıt tekrar yazılmaz. Kaydedilmiş taslağın tarihi, kapanma/sonlandırma sonrası gün değişmiş olsa da korunur.
+- Link Notları’nda etiket grupları arasına tek satırlık görsel `- - - -` ayraçlar eklendi. Tireler notlara, günlüğe veya panoya eklenmez; seçilip kopyalanamaz.
+- TR ve EN APK’leri ayrı olarak aynı release’te yayımlanır. Mevcut yerel veriler korunur.
 
-- Türkçe APK aynı arayüz ve işlevlerle korunur; dil düğmesi eklenmedi. İngilizce APK aynı release sayfasında `YT-DLP-Command-Builder-v1.1.3-EN.apk` adıyla ayrı yayımlanır. EN, Türkçe uygulamayı ve kayıtlarını değiştirmeden ayrı kurulabilir; her sürüm kendi APK güncellemesini indirir.
-- GitHub About açıklaması ile README yenilendi; Türkçe ve İngilizce adım adım kullanım yönergeleri eklendi.
+### English
+- The Notes Log is fed only by Link Notes. Cleaned links and annotations accumulate in one record per day, with unique URLs and the latest annotation.
+- Removing links from current notes does not remove archived entries. Existing tag grouping also orders the daily log. Command history and copying commands do not feed this archive.
+- Notes are archived after a short pause, on note closure, background/exit and launch, with a ten-minute fallback check. Unchanged records are not rewritten. Persisted draft edit dates support recovery across midnight.
+- Tag groups in Link Notes have a single visual row of spaced dashes. The dashes cannot be selected or copied and are never saved as note or archive text.
+- Separate Turkish and English APKs are published in this release. Existing local data is preserved.
 
-- ICC renk profili bulunan Instagram videolarında çözünürlük okumasının geçerli videoyu reddetmesi düzeltildi.
-
-- Frame, ilk saniyeden 0,5 saniyeye veya özel zamana en yakın gerçek kareyi yüksek kaliteli JPG olarak çıkarır. Hedef çıkarılamazsa ilk geçerli kareyi dener.
-- Yalnızca JPG saklanır. Geçici videolar otomatik temizlenir; işlem sonunda başarı/başarısızlık sayıları ve kısa hata nedenleri gösterilir.
-- Frame seçenekleri 0,5 saniye ve özel zaman olarak sadeleştirildi. Açıklama kısaltıldı.
-- Mevcut ikon küçültüldü ve AMOLED siyah boşluk eklendi. Geçmiş simgesi yuvarlatılmış kare kutuyla yenilendi.
-- Uygulama içinden GitHub güncelleme kontrolü, doğrulanmış APK indirme ve Android yükleme ekranına geçiş korunur.
-
-- Not ve taslak düzenlemeleri küçük, doğrulanan yedekli kayıtlarda anında saklanır; büyük geçmiş her tuşta yeniden yazılmaz.
-- Geçmiş ayrıntıları açıldığında hazırlanır; önizlemede yinelenen bağlantı ayrıştırma ve liste oluşturma işlemleri azaltıldı.
-- Yapıştırmada yinelenen kayıt çağrısı ve silme onayı açıkken geri tuşu çakışması giderildi.
-- Günlük not kayıtları, AMOLED tasarım, komutlar ve mevcut kullanıcı verileri korunur. Geçmişte arka sayfa kaydırması kilitlenir; seçim göstergeleri küçük beyaz noktalardır.
-
-Android sürümü 1.1.3, version code 14. Android 10 ve üzeri. Mevcut release anahtarıyla imzalanır; önceki imzalı sürümün üzerine kurulabilir.
+Android 10+ · version 1.1.4 · version code 15 · signed with the existing release key.

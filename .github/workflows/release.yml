@@ -9,6 +9,7 @@ on:
       - 'app.js'
       - 'engine.js'
       - 'styles.css'
+      - 'notes-ui.js'
       - 'editions/en/**'
       - '.github/workflows/release.yml'
   workflow_dispatch:

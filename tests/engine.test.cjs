@@ -303,3 +303,25 @@ test('English changes only Frame messages and leaves download options and paths 
   const value=input({mode});assert.equal(B.build({...value,language:'en'}).command,B.build(value).command);
  }
 });
+
+test('daily notes accumulate unique cleaned links, retain deletions and update annotations',()=>{
+ const first=B.mergeDailyNotes('', 'https://instagram.com/stories/user.a/1?utm_source=x V\nreel/Ab_c S');
+ assert.equal(first,'stories/user.a/1 V\nreel/Ab_c S');
+ const next=B.mergeDailyNotes(first,'stories/user.a/1 V1s (özel not)\nreel/New V\nreel/New V');
+ assert.equal(next,'stories/user.a/1 V1s (özel not)\nreel/Ab_c S\nreel/New V');
+ assert.equal(B.mergeDailyNotes(next,''),next);
+ assert.equal(B.mergeDailyNotes(next,'https://www.instagram.com/reel/New/?x=1 V'),next);
+ assert.equal(B.mergeDailyNotes(next,next),next);
+ assert.equal(B.parseUrls(B.mergeDailyNotes('stories/User.A/1 V','stories/user.a/1 S')).length,1);
+ assert.match(B.mergeDailyNotes('','reel/Ab V7 (kesit özel)\nAçıklama ?kalsın'),/V7 \(kesit özel\)\nAçıklama \?kalsın/);
+});
+test('visual group gaps are single rows, stable, and contain no separator characters',()=>{
+ const text='stories/a/1 V\nstories/c/3 V\nreel/B V1s\nreel/C S';
+ const spaced=B.spaceNoteGroups(text);
+ assert.equal(spaced,'stories/a/1 V\nstories/c/3 V\n\nreel/B V1s\n\nreel/C S');
+ assert.equal(B.spaceNoteGroups(spaced),spaced);
+ assert.equal(B.noteSeparatorOffsets(spaced).length,2);
+ assert.deepEqual(B.parseUrls(spaced),B.parseUrls(text));
+ assert.doesNotMatch(B.mergeDailyNotes('',spaced),/- -/);
+ assert.equal(B.spaceNoteGroups('Özel not\n\nreel/B V\n\n\n'), 'Özel not\n\nreel/B V\n\n\n');
+});
