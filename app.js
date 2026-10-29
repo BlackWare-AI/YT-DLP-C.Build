@@ -464,7 +464,8 @@ window.setUpdateStatus=(message,busy,available=false)=>{
 };
 $('checkUpdate').onclick=()=>{
   if(window.Android && typeof Android.checkUpdates==='function') {
-    window.setUpdateStatus('Güncelleme kontrol ediliyor…',true);
+    const available=$('checkUpdate').classList.contains('update-available');
+    window.setUpdateStatus(available ? 'Güncelleme indiriliyor…' : 'Güncelleme kontrol ediliyor…',true,available);
     Android.checkUpdates();
   } else window.setUpdateStatus('Güncelleme kontrolü Android uygulamasında kullanılabilir.',false);
 };
