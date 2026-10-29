@@ -168,19 +168,21 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             assertTrue("Two consecutive back presses exit",activity.isFinishing());
         } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
     }
-    public void testLanguageFollowsSelectionAndSurvivesActivityRestart() throws Exception {
+    public void testFixedEdition() throws Exception {
         launch();
         try {
-            await("typeof state==='object' && typeof applyLanguage==='function'");
-            js("language='tr';state.language='tr';applyLanguage();save();document.getElementById('languageBtn').click();true");
-            assertEquals("true",js("document.documentElement.lang==='en' && document.getElementById('checkUpdate').textContent==='Update' && JSON.parse(Android.getState()).language==='en'"));
-            assertEquals("English native messages", "English", UiText.get(activity,"Türkçe","English"));
-            getInstrumentation().runOnMainSync(() -> activity.finish());
-            getInstrumentation().waitForIdleSync();launch();
-            await("document.documentElement.lang==='en' && document.getElementById('languageBtn').textContent==='TR'");
-            js("document.getElementById('languageBtn').click();true");
-            assertEquals("true",js("document.documentElement.lang==='tr' && document.getElementById('checkUpdate').textContent==='Güncelle'"));
-            assertEquals("Türkçe",UiText.get(activity,"Türkçe","English"));
-        } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
+            boolean english=BuildConfig.ENGLISH_EDITION;
+            await("document.readyState==='complete' && typeof Builder==='object'");
+            assertEquals(english ? "\"en\"" : "\"tr\"",js("document.documentElement.lang"));
+            assertEquals("true",js("document.getElementById('languageBtn')===null"));
+            assertEquals(english ? "English" : "Türkçe",UiText.get(activity,"Türkçe","English"));
+            assertEquals(english ? "com.blackware.ytdlpcommandbuilder.en" : "com.blackware.ytdlpcommandbuilder",activity.getPackageName());
+            String name="YT-DLP-Command-Builder-v1.1.3"+(english ? "-EN.apk" : ".apk");
+            org.json.JSONObject asset=new org.json.JSONObject().put("name",name).put("browser_download_url","https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v1.1.3/"+name).put("digest","sha256:"+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").put("size",100);
+            org.json.JSONObject release=new org.json.JSONObject().put("tag_name","v1.1.3").put("assets",new org.json.JSONArray().put(asset));
+            assertNotNull(UpdateController.parse(release));
+            asset.put("name",english ? "YT-DLP-Command-Builder-v1.1.3.apk" : "YT-DLP-Command-Builder-v1.1.3-EN.apk");
+            assertNull(UpdateController.parse(release));
+        } finally {getInstrumentation().runOnMainSync(() -> activity.finish());}
     }
 }

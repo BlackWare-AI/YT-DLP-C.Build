@@ -1,6 +1,9 @@
 ## YT-DLP Command Builder 1.1.3
 
-- Güncelle düğmesi önceki 14 px yazı boyutuyla uygulama adı ile geçmiş simgesi arasındadır. Ayrı durum kutusu ve güncelleme teklifi penceresi kaldırıldı. Güncelleme varsa düğme beyaz/siyah olur; ikinci dokunuş APK indirmeyi başlatır.
+- Güncelle düğmesi 15 px yazı boyutuyla uygulama adı ile geçmiş simgesi arasındadır. Ayrı durum kutusu ve güncelleme teklifi penceresi kaldırıldı. Güncelleme varsa düğme beyaz/siyah olur; ikinci dokunuş APK indirmeyi başlatır.
+
+- Türkçe APK aynı arayüz ve işlevlerle korunur; dil düğmesi eklenmedi. İngilizce APK aynı release sayfasında `YT-DLP-Command-Builder-v1.1.3-EN.apk` adıyla ayrı yayımlanır. EN, Türkçe uygulamayı ve kayıtlarını değiştirmeden ayrı kurulabilir; her sürüm kendi APK güncellemesini indirir.
+- GitHub About açıklaması ile README yenilendi; Türkçe ve İngilizce adım adım kullanım yönergeleri eklendi.
 
 - ICC renk profili bulunan Instagram videolarında çözünürlük okumasının geçerli videoyu reddetmesi düzeltildi.
 

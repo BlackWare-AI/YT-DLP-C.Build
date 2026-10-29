@@ -11,7 +11,7 @@ Add your links, select an engine and download mode, then copy the command into T
 ## Türkçe kullanım kılavuzu
 
 1. **Hazırlık:** Android 10 veya üzeri cihazına APK'yı ve Termux'u kur. Termux'ta çalışır bir yt-dlp kurulumu bulunsun; birleştirme, kesit ve JPG için FFmpeg de kurulu olmalı. Ortak depolama kullanacaksan Termux'a depolama erişimi ver.
-2. **Dil:** Alt bölümde Güncelle ile Geçmiş arasındaki **EN** düğmesine bir kez basarak İngilizceye geç. **TR** ile Türkçeye dön. Seçimin kaydedilir; notların ve geçmişin değişmez.
+2. **Dil sürümü:** Aynı GitHub Release sayfasındaki normal APK Türkçedir; dosya adı **-EN.apk** ile biten APK İngilizcedir. Uygulama içinde dil düğmesi yoktur. EN ayrı kurulur; Türkçe uygulama ve kayıtları korunur.
 3. **Motor:** Standart yt-dlp için **Normal**, Story fork kurulumu için **Deneysel** seç. Deneysel komut `$HOME/yt-dlp-story-test/bin/yt-dlp` dosyasını kullanır; bu kurulum Termux'ta önceden bulunmalı.
 4. **Biçim:** **Video + Ses**, **Sessiz Video**, **Yalnızca Ses**, ilk saniyelik sessiz **Kısa Kesit** veya tek JPG için **Yalnızca Kare** seç. Tüm bağlantılara aynı seçim uygulanır.
 5. **Bağlantılar:** Bir veya daha fazla Instagram Story, Reels veya gönderi bağlantısını alana yapıştır. Pano düğmesi mevcut listeye ekler; yinelenen bağlantılar atlanır. Tek bağlantı eklemek için alttaki alanı ve **+ Ekle** düğmesini kullan.
@@ -22,6 +22,10 @@ Add your links, select an engine and download mode, then copy the command into T
 10. **Uygulamayı güncelle:** **Güncelle** GitHub sürümünü kontrol eder. Güncelleme varsa düğme beyaz olur; tekrar bastığında APK indirilip doğrulanır ve Android yükleme ekranı açılır. Son yüklemeyi Android ekranında onayla.
 
 Yalnızca Kare modu ilk saniyeden bir JPG üretir ve geçici videoyu temizler. JPG'ler `$HOME/storage/shared/Download/Apps/YT-DLP/Frame/` klasörüne gider. Süresi dolmuş veya erişilemeyen içerikler seçilen motor tarafından indirilemeyebilir.
+
+## APK editions
+
+Both editions are published under **v1.1.3** in this repository: `YT-DLP-Command-Builder-v1.1.3.apk` (TR) and `YT-DLP-Command-Builder-v1.1.3-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
 
 ## Our goal
 
@@ -47,7 +51,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 ## English usage guide
 
 1. **Prepare Termux:** Install the APK on Android 10 or later, install Termux, and set up working yt-dlp and FFmpeg executables. Allow Termux access to shared storage if using a shared download folder.
-2. **Choose a language:** Tap **EN** between Update and History to switch to English; tap **TR** to return to Turkish. The language is remembered without modifying notes or history.
+2. **Choose an edition:** The regular APK on the same GitHub Release page is Turkish; the **-EN.apk** asset is English. There is no in-app language switch. EN installs separately without replacing the Turkish app or its data.
 3. **Choose an engine:** **Standard** uses `yt-dlp`. **Experimental** uses the separately installed Story fork at `$HOME/yt-dlp-story-test/bin/yt-dlp`.
 4. **Choose a mode:** **Video + Audio**, **Silent Video**, **Audio Only**, **Short Clip** (the first silent second), or **Frame Only** (one JPG). All links in the batch share these settings.
 5. **Add Instagram links:** Paste one or more Story, Reels or post links. The clipboard button appends supported links and skips duplicates. Use the smaller field and **+ Add** for another link.
@@ -109,6 +113,8 @@ To build locally, use JDK 17, Android SDK 35, and the project's Gradle configura
 
 ```sh
 gradle :app:assembleDebug
+# Separate English APK (same version)
+gradle :app:assembleDebug -PappLanguage=en
 ```
 
 Press Back twice within two seconds on the main screen to exit. Back first dismisses the keyboard or closes the open panel. Exiting is blocked if the final save fails.
@@ -142,4 +148,4 @@ Bug reports, feature suggestions, pull requests, and forks are welcome. Please k
 
 ## In-app updates
 
-The compact **Update / Güncelle** button beside the language and history buttons checks the latest public GitHub Release. When an update is available, it turns white with black text; a second tap downloads the release APK into private cache, checks its SHA-256, package name, signing certificate and version, then opens Android’s installer. Android may first ask you to allow installs from this app. Installation always requires Android’s confirmation. Same-version APK replacements are detected using the release asset hash. No Instagram content or cookies are sent by the updater.
+The **Update / Güncelle** button beside the history button checks the latest public GitHub Release. When an update is available, it turns white with black text; a second tap downloads the release APK into private cache, checks its SHA-256, package name, signing certificate and version, then opens Android’s installer. Android may first ask you to allow installs from this app. Installation always requires Android’s confirmation. Same-version APK replacements are detected using the release asset hash. Each edition downloads only its matching APK. No Instagram content or cookies are sent by the updater.

@@ -112,7 +112,7 @@ final class UpdateController {
         JSONArray assets=json.getJSONArray("assets");
         for (int i=0;i<assets.length();i++) {
             JSONObject asset=assets.getJSONObject(i);
-            String name="YT-DLP-Command-Builder-v"+version+".apk";
+            String name="YT-DLP-Command-Builder-v"+version+(BuildConfig.ENGLISH_EDITION ? "-EN.apk" : ".apk");
             String url=asset.optString("browser_download_url");
             String digest=asset.optString("digest"); long size=asset.optLong("size");
             if (name.equals(asset.optString("name")) &&

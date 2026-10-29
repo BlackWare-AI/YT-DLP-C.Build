@@ -52,6 +52,15 @@ jobs:
           name: YT-DLP-Command-Builder-1.1.3-debug
           path: YT-DLP-Command-Builder-1.1.3-debug.apk
           if-no-files-found: error
+      - name: Build and lint the separate English APK
+        run: |
+          gradle :app:assembleDebug :app:lintDebug -PappLanguage=en --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk YT-DLP-Command-Builder-1.1.3-EN-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YT-DLP-Command-Builder-1.1.3-EN-debug
+          path: YT-DLP-Command-Builder-1.1.3-EN-debug.apk
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -97,6 +106,11 @@ jobs:
             sleep 2
             adb shell screencap -p /sdcard/android-phone.png
             adb pull /sdcard/android-phone.png android-phone-${{ matrix.api }}.png
+            gradle :app:assembleDebug :app:assembleDebugAndroidTest -PappLanguage=en --no-daemon
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e class com.blackware.ytdlpcommandbuilder.AppSmokeTest#testFixedEdition com.blackware.ytdlpcommandbuilder.en.test/android.test.InstrumentationTestRunner | tee english-edition.txt
+            grep -q 'OK (1 test)' english-edition.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -106,6 +120,7 @@ jobs:
             app/build/outputs/androidTest-results/
             android-phone-*.png
             process-*.txt
+            english-edition.txt
   web-and-media:
     runs-on: ubuntu-latest
     steps:
@@ -126,7 +141,9 @@ jobs:
       - name: Command engine, shell and FFmpeg fixture tests
         run: node --test tests/engine.test.cjs
       - name: Web UI tests
-        run: node tests/ui.cjs
+        run: |
+          node tests/ui.cjs
+          node tests/english-ui.cjs
       - name: Real yt-dlp and ffmpeg fixture tests
         run: python tests/media_integration.py
       - uses: actions/upload-artifact@v4

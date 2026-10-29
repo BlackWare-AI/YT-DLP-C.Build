@@ -126,9 +126,6 @@ public final class MainActivity extends Activity {
     }
 
     public final class Bridge {
-        @JavascriptInterface public void setLanguage(String value) {
-            prefs.edit().putString("language", "en".equals(value) ? "en" : "tr").apply();
-        }
         @JavascriptInterface public void checkUpdates() { runOnUiThread(() -> updater.check()); }
         @JavascriptInterface public String getState() { return stateStore.read(); }
         @JavascriptInterface public boolean saveState(String value) { return stateStore.save(value); }
