@@ -10,8 +10,8 @@ android {
         resValue("string", "app_name", if (englishEdition) "YT-DLP Command Builder EN" else "YT-DLP Command Builder")
         minSdk = 29
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.1.3"
+        versionCode = 15
+        versionName = "1.1.4"
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
     signingConfigs {
@@ -36,7 +36,7 @@ android {
     useLibrary("android.test.base")
 }
 val copyWebAssets by tasks.registering(Sync::class) {
-    from(rootProject.files("engine.js", "styles.css"))
+    from(rootProject.files("engine.js", "styles.css", "notes-ui.js"))
     from(rootProject.files(if (englishEdition) "editions/en/index.html" else "index.html", if (englishEdition) "editions/en/app.js" else "app.js"))
     into(layout.buildDirectory.dir("generated/webAssets"))
 }

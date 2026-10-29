@@ -41,7 +41,7 @@ import java.util.concurrent.FutureTask;
 public final class MainActivity extends Activity {
     private static final String ORIGIN = "https://app.local/";
     private static final int EXPORT_TEXT = 41;
-    private static final Set<String> ASSETS = new HashSet<>(Arrays.asList("index.html", "engine.js", "app.js", "styles.css"));
+    private static final Set<String> ASSETS = new HashSet<>(Arrays.asList("index.html", "engine.js", "app.js", "styles.css", "notes-ui.js"));
     private WebView web;
     private UpdateController updater;
     private SharedPreferences prefs;
@@ -225,7 +225,7 @@ public final class MainActivity extends Activity {
             } else { lastBackAt = now; toast(UiText.get(MainActivity.this,"Çıkmak için tekrar geri basın.","Press Back again to exit.")); }
         });
     }
-    @Override protected void onPause() { lastBackAt = 0; super.onPause(); }
+    @Override protected void onPause() { lastBackAt = 0; web.evaluateJavascript("window.prepareExit && window.prepareExit()", null); super.onPause(); }
     @Override protected void onDestroy() {
         updater.close();
         web.removeJavascriptInterface("Android"); web.destroy(); super.onDestroy();

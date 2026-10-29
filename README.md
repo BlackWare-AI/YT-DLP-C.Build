@@ -25,7 +25,7 @@ Yalnızca Kare modu ilk saniyeden bir JPG üretir ve geçici videoyu temizler. J
 
 ## APK editions
 
-Both editions are published under **v1.1.3** in this repository: `YT-DLP-Command-Builder-v1.1.3.apk` (TR) and `YT-DLP-Command-Builder-v1.1.3-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
+Both editions are published under **v1.1.4** in this repository: `YT-DLP-Command-Builder-v1.1.4.apk` (TR) and `YT-DLP-Command-Builder-v1.1.4-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
 
 ## Our goal
 
@@ -41,9 +41,9 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Video segments:** add multiple start/end ranges, including ranges that end at the end of a video.
 - **Audio artwork:** optionally embed available thumbnails in audio files.
 - **Advanced settings:** customize download and cookies paths, request delays, and overwrite behavior.
-- **Link Notes:** a full-screen AMOLED notepad slides in from the left. The header shows the number of Instagram links. A standalone Instagram username is converted to its Story account URL in both the notes and main link field; recognized format annotations such as `V1s` remain text. Paste/query cleanup preserves surrounding format notes. A confirmed clear action removes only the current notes; operation history and archived daily notes remain intact. Notes and drafts are persisted locally.
+- **Link Notes:** a full-screen AMOLED notepad slides in from the left. The header shows the number of Instagram links. A standalone Instagram username is converted to its Story account URL in both the notes and main link field; recognized format annotations such as `V1s` remain text. Paste/query cleanup preserves surrounding format notes. A confirmed clear action removes only the current notes; operation history and archived daily notes remain intact. Notes and drafts are persisted locally. Tag groups are separated by a single visual row of spaced dashes; those dashes are excluded from saved text and clipboard copies.
 - **Command preview and copy:** inspect the complete shell command before using it.
-- **Local history:** switch between copied-command history and a separate Notes Log. While the app is open, notes are checked every ten minutes; one snapshot is kept per local calendar day and updated only when that day’s note text changes. Empty notes do not create records. Clearing notes never deletes either history.
+- **Local history:** switch between copied-command history and a separate Notes Log. Only Link Notes feed this archive. Cleaned links and annotations accumulate in one record per local day, without duplicate URLs. The latest annotation wins when the same URL is edited; existing tag grouping orders the record. Deleting current notes does not delete archived entries. A short debounce, note closure, background/exit and launch checks archive edits; a ten-minute check remains as a fallback. Saved draft edit dates allow recovery after interruption across midnight. Unchanged records are not rewritten.
 - **Full settings export:** the information/history menu exports a JSON file containing settings, draft links, notes, unfinished input, item selection, cuts, command history and the daily Notes Log. Cookies file contents are never read.
 - **Offline and private:** no analytics, ads or account login. Command building stays offline; the optional GitHub updater uses network access only when requested.
 - **AMOLED-friendly interface:** a minimal black design optimized for Android.
@@ -107,7 +107,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.1.3`
+- Current documented version: `1.1.4`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -121,7 +121,7 @@ Press Back twice within two seconds on the main screen to exit. Back first dismi
 
 All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.3-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.4-debug`.
 
 Validation commands:
 

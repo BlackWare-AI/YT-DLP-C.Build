@@ -78,7 +78,7 @@ const english={
   "Motor, biçim, yollar, beklemeler, taslak bağlantılar, sıra/kesit seçimleri, link notları ve geçmiş birlikte kaydedilir. Cookies dosyasının içeriği alınmaz.": "Engine, format, paths, delays, draft links, item/segment selections, link notes and history are saved together. Cookies file contents are not included.",
   "TXT dışa aktar": "Export TXT",
   "Tümünü temizle": "Clear all",
-  "Link Notları uygulama açıldığında, uygulamaya geri dönüldüğünde ve açıkken 10 dakikada bir denetlenir. Her gün için tek kayıt tutulur; aynı gün içindeki değişiklikler o kaydı günceller.": "Link Notes are checked on launch, on returning to the app, and every 10 minutes while open. One record is kept per day; changes during that day update the same record.",
+  "Link Notları’ndaki temizlenmiş bağlantılar ve etiketler gün içinde tek kayıtta birikir. Tekrarlar eklenmez; son etiket kullanılır. Notlardan silinen satırlar günlükte korunur. Değişiklikler kısa bir bekleme sonrası ve kapanışta kaydedilir; 10 dakikalık kontrol de sürer.": "Cleaned links and tags from Link Notes accumulate in one daily record. Duplicate links are skipped; the latest tag is kept. Removing a note does not remove it from the log. Changes are archived after a short pause and on exit, with a 10-minute backup check.",
   "Link notlarını kapat": "Close link notes",
   "Bağlantıları, indirme biçimlerini ve özel isteklerini buraya yaz. Boş bir satıra dokunup yapıştırabilirsin. Instagram adresleri kısa yola çevrilir; biçim notların korunur.": "Write links, download formats and special requests here. Tap an empty line to paste. Instagram URLs become short paths; your format notes are preserved.",
   "Kalıcı bağlantı ve biçim notları": "Saved link and format notes",
@@ -230,6 +230,8 @@ function applyLanguage() {
 }
 const $ = id => document.getElementById(id);
 const native = window.Android;
+const notesView=NotesUI.attach($('notes'));
+let notesArchiveTimer=0, notesLogFailed=false;
 let state, storageError = '', copying = false;
 function validState(v) {
   return v && typeof v.settings==='object' && v.settings && !Array.isArray(v.settings) &&
@@ -320,6 +322,7 @@ function renderCuts() {
   });
 }
 function renderNotesCount() {
+  notesView.render();
   $('notesCount').textContent=linkCount(Builder.countNoteLinks(state.notes));
 }
 let renderedLinksKey=null;
@@ -572,26 +575,32 @@ $('clear').onclick=()=>{
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(t(e.message)); }
   });
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.0',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.4',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
+  state.notesDraftDate=localDateKey(new Date());
+  clearTimeout(notesArchiveTimer);notesArchiveTimer=setTimeout(flushNotesDailyLog,700);
   $('notesStatus').textContent=save() ? t('Kaydedildi') : $('status').textContent;
   renderNotesCount();
 }
 function cleanNoteUrls() {
-  const editor=$('notes'), raw=editor.value, cleaned=Builder.cleanNotes(raw);
-  if(raw===cleaned) return false;
-  const start=Builder.cleanNotes(raw.slice(0,editor.selectionStart)).length;
-  const end=Builder.cleanNotes(raw.slice(0,editor.selectionEnd)).length;
+  const editor=$('notes'), raw=editor.value, cleaned=Builder.spaceNoteGroups(Builder.cleanNotes(raw));
+  if(raw===cleaned) {notesView.render();return false;}
+  const start=Builder.spaceNoteGroups(Builder.cleanNotes(raw.slice(0,editor.selectionStart))).length;
+  const end=Builder.spaceNoteGroups(Builder.cleanNotes(raw.slice(0,editor.selectionEnd))).length;
   editor.value=cleaned;editor.setSelectionRange(start,end);saveNotes();return true;
 }
+$('notes').addEventListener('beforeinput',e=>{
+  if(e.inputType==='deleteByCut' || $('notes').selectionStart!==$('notes').selectionEnd) flushNotesDailyLog();
+});
 $('notes').oninput=e=>{
   if(e.inputType==='insertFromPaste' && cleanNoteUrls())return;
   saveNotes();
 };
 $('notes').addEventListener('blur',cleanNoteUrls);
 function insertNoteText(text) {
+  if(!flushNotesDailyLog()) return;
   const editor=$('notes');
   editor.setRangeText(Builder.cleanNoteUrls(text),editor.selectionStart,editor.selectionEnd,'end');
   if(!cleanNoteUrls()) saveNotes();
@@ -612,6 +621,7 @@ $('notesPaste').onclick=async()=>{
 $('notesClear').onclick=async()=>{
   if(!$('notes').value) return;
   if(!await askConfirm(t('Link Notları tamamen silinsin mi? Not Günlüğü ve işlem geçmişi korunur.'),{title:t('Link Notlarını temizle'),accept:t('Notları sil')})) return;
+  if(!flushNotesDailyLog()) return;
   const old=state.notes;state.notes='';$('notes').value='';
   if(!save()) {state.notes=old;$('notes').value=old;renderNotesCount();$('notesStatus').textContent=$('status').textContent;return;}
   renderNotesCount();
@@ -646,6 +656,7 @@ $('notes').addEventListener('pointerup',e=>{
 });
 let notesScrollY=0;
 function closeNotes() {
+  if(!flushNotesDailyLog()) return;
   if(!save()) {$('notesStatus').textContent=$('status').textContent;return;}
   $('notesDialog').close();document.documentElement.classList.remove('notes-open');$('notesBtn').focus();window.scrollTo(0,notesScrollY);
 }
@@ -658,16 +669,18 @@ window.handleBack=()=>{
   if($('dialog').open) {closeHistory();return true;}
   return false;
 };
-window.prepareExit=()=>save();
+window.prepareExit=()=>flushNotesDailyLog() && save();
 const NOTES_DAILY_CHECK_MS=10*60*1000;
 function localDateKey(date) {
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
 }
 function checkNotesDailyLog(date=new Date()) {
-  const notes=Builder.cleanNotes(state.notes).trim();
-  if(!notes) return false;
+  notesLogFailed=false;
+  if(!state.notes.trim()) return false;
   const key=localDateKey(date), previous=state.notesDailyHistory;
   const index=previous.findIndex(record=>record.date===key);
+  const notes=Builder.mergeDailyNotes(index>=0 ? previous[index].notes : '',state.notes);
+  if(!notes) return false;
   if(index>=0 && previous[index].notes===notes) return false;
   const next=previous.map(record=>({...record}));
   if(index>=0) next[index]={date:key,notes};
@@ -675,15 +688,28 @@ function checkNotesDailyLog(date=new Date()) {
   next.sort((a,b)=>b.date.localeCompare(a.date));
   state.notesDailyHistory=next;
   try {persist();return true;}
-  catch(e) {state.notesDailyHistory=previous;$('notesStatus').textContent=t('Günlük not kaydı yapılamadı: ')+t(e.message);return false;}
+  catch(e) {notesLogFailed=true;state.notesDailyHistory=previous;$('notesStatus').textContent=t('Günlük not kaydı yapılamadı: ')+t(e.message);return false;}
+}
+function flushNotesDailyLog() {
+  clearTimeout(notesArchiveTimer);
+  // Replay the last saved draft under its edit date after a kill/restart across midnight.
+  const draft=state.notesDraftDate;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(draft || '') && draft!==localDateKey(new Date())) {
+    const [year,month,day]=draft.split('-').map(Number);
+    checkNotesDailyLog(new Date(year,month-1,day));
+    if(notesLogFailed) return false;
+  }
+  checkNotesDailyLog();
+  return !notesLogFailed;
 }
 window.checkNotesDailyLog=checkNotesDailyLog;
-window.setInterval(()=>checkNotesDailyLog(),NOTES_DAILY_CHECK_MS);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden) checkNotesDailyLog();});
+window.setInterval(flushNotesDailyLog,NOTES_DAILY_CHECK_MS);
+document.addEventListener('visibilitychange',flushNotesDailyLog);
+window.addEventListener('pagehide',flushNotesDailyLog);
 // Every mutation saves synchronously; lifecycle handlers must not overwrite newer disk state.
 hydrate();
 if(storageError) $('status').textContent=t(storageError);
-checkNotesDailyLog();
+flushNotesDailyLog();
 
 window.setUpdateStatus=(message,busy,available=false)=>{
   const canonical=Object.keys(english).find(key=>english[key]===message);

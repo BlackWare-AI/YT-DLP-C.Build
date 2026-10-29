@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..');
 (async()=>{
  const server=http.createServer((req,res)=>{
   const name=req.url==='/'?'index.html':req.url.slice(1);
-  if(!['index.html','engine.js','app.js','styles.css'].includes(name)){res.writeHead(404);res.end();return;}
+  if(!['index.html','engine.js','app.js','styles.css','notes-ui.js'].includes(name)){res.writeHead(404);res.end();return;}
   res.setHeader('Content-Type',name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html');
   res.end(fs.readFileSync(path.join(root,name)));
  });
@@ -228,19 +228,19 @@ const root=path.resolve(__dirname,'..');
   await page.click('#notesBtn');
   await page.fill('#notes','https://instagram.com/stories/melisay/1 V\nhttps://instagram.com/stories/angie/2 V1s\nhttps://instagram.com/stories/berrocks/3 V\nhttps://instagram.com/stories/dalymarithe/4 V1s');
   await page.click('#notesClose');
-  assert.equal(await page.inputValue('#notes'),'stories/melisay/1 V\nstories/berrocks/3 V\nstories/angie/2 V1s\nstories/dalymarithe/4 V1s');
+  assert.equal(await page.inputValue('#notes'),'stories/melisay/1 V\nstories/berrocks/3 V\n\nstories/angie/2 V1s\nstories/dalymarithe/4 V1s');
   assert.equal(await page.textContent('#notesCount'),'4 bağlantı');
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,27,10))),true);
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,27,10))),false);
   await page.click('#notesBtn');await page.fill('#notes','hilaalats V4S\nhttps://instagram.com/stories/mashadiduk/4015971660985413663?utm_source=other V2S');await page.click('#notesClose');
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,27,11))),true);
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,27,12))),false);
-  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).notesDailyHistory.length),1);
-  assert.match((await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).notesDailyHistory[0].notes)),/V2S/);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).notesDailyHistory.filter(r=>r.date==='2026-10-27').length),1);
+  assert.match((await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).notesDailyHistory.find(r=>r.date==='2026-10-27').notes)),/V2S/);
   assert.equal(await page.evaluate(()=>window.checkNotesDailyLog(new Date(2026,9,28,10))),true);
-  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).notesDailyHistory.length),2);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).notesDailyHistory.filter(r=>['2026-10-27','2026-10-28'].includes(r.date)).length),2);
   await page.click('#historyBtn');await page.click('#notesLogTab');
-  assert.equal(await page.locator('#notesDailyHistory .daily-note-item').count(),2);
+  assert.equal(await page.locator('#notesDailyHistory .daily-note-item').count(),await page.evaluate(()=>state.notesDailyHistory.length));
   assert.equal(await page.locator('#notesDailyHistory .daily-note-item').first().evaluate(el=>el.open),false);
   await page.locator('#notesDailyHistory .daily-note-item summary').first().click();
   await page.locator('#notesDailyHistory .daily-note-item pre').first().waitFor({state:'visible'});
