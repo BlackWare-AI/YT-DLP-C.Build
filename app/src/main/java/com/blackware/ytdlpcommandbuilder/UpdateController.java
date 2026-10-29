@@ -140,7 +140,7 @@ final class UpdateController {
         actions.setGravity(Gravity.END|Gravity.CENTER_VERTICAL); actions.setPadding(0,dp(18),0,0);
         Button later=new Button(activity); later.setText(UiText.get(activity,"Daha sonra","Later")); later.setAllCaps(false); later.setTextSize(TypedValue.COMPLEX_UNIT_SP,13);
         later.setTextColor(Color.rgb(190,190,190)); later.setBackground(surface(Color.rgb(17,17,17),Color.rgb(55,55,55)));
-        Button install=new Button(activity); install.setText(UiText.get(activity,"İndir ve yükle","Download & install")); install.setAllCaps(false); install.setTextSize(TypedValue.COMPLEX_UNIT_SP,13);
+        Button install=new Button(activity); install.setText(UiText.get(activity,"İndir ve yükle","Install update")); install.setAllCaps(false); install.setTextSize(TypedValue.COMPLEX_UNIT_SP,13);
         install.setTypeface(Typeface.DEFAULT,Typeface.BOLD); install.setTextColor(Color.rgb(245,245,245));
         install.setBackground(surface(Color.rgb(32,32,32),Color.rgb(80,80,80)));
         LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(-2,dp(44)); buttonParams.leftMargin=dp(8);

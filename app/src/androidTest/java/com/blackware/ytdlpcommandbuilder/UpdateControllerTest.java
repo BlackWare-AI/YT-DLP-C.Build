@@ -98,7 +98,7 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
         assertEquals(1,metadataRequests.get());assertEquals(0,apkRequests.get());
         main(()->assertTrue(controller.hasUpdate()));
         assertFalse(UpdateApkProvider.apk(activity).exists());
-        String later=UiText.get(activity,"Daha sonra","Later"),install=UiText.get(activity,"İndir ve yükle","Download & install");
+        String later=UiText.get(activity,"Daha sonra","Later"),install=UiText.get(activity,"İndir ve yükle","Install update");
         main(()->{
             android.widget.Button laterButton=findButton(first.getWindow().getDecorView(),later);
             android.widget.Button installButton=findButton(first.getWindow().getDecorView(),install);
@@ -121,6 +121,11 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
             android.view.View decor=first.getWindow().getDecorView();
             android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(decor.getWidth(),decor.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);
             decor.draw(new android.graphics.Canvas(image));rendered.set(image);
+            if(BuildConfig.ENGLISH_EDITION) {
+                android.widget.Button positive=findButton(decor,install);
+                assertEquals("The English confirmation label must stay on one line",1,positive.getLineCount());
+                assertTrue("The English confirmation label must fit its button",positive.getLayout().getLineWidth(0)<=positive.getWidth()-positive.getCompoundPaddingLeft()-positive.getCompoundPaddingRight()+1);
+            }
         });
         android.graphics.Bitmap screenshot=rendered.get();
         try(FileOutputStream out=new FileOutputStream(new File(activity.getFilesDir(),"update-offer.png"))) {screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}

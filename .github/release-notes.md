@@ -9,7 +9,7 @@
 - TR ve EN APK’leri ayrı olarak aynı release’te yayımlanır. Mevcut yerel veriler korunur.
 
 ### English
-- Restored the previous AMOLED update offer. Update checks for a release; the APK downloads only after confirming **Download & install** in the dialog. **Later**, Back or dismissing the offer does not start a download.
+- Restored the previous AMOLED update offer. Update checks for a release; the APK downloads only after confirming **Install update** in the dialog. **Later**, Back or dismissing the offer does not start a download.
 - The Notes Log is fed only by Link Notes. Cleaned links and annotations accumulate in one record per day, with unique URLs and the latest annotation.
 - Removing links from current notes does not remove archived entries. Existing tag grouping also orders the daily log. Command history and copying commands do not feed this archive.
 - Notes are archived after a short pause, on note closure, background/exit and launch, with a ten-minute fallback check. Unchanged records are not rewritten. Persisted draft edit dates support recovery across midnight.
