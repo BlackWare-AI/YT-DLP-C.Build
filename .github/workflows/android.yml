@@ -106,11 +106,13 @@ jobs:
             sleep 2
             adb shell screencap -p /sdcard/android-phone.png
             adb pull /sdcard/android-phone.png android-phone-${{ matrix.api }}.png
+            adb exec-out run-as com.blackware.ytdlpcommandbuilder cat cache/update-offer.png > update-offer-tr-${{ matrix.api }}.png || rm -f update-offer-tr-${{ matrix.api }}.png
             gradle :app:assembleDebug :app:assembleDebugAndroidTest -PappLanguage=en --no-daemon
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -e class com.blackware.ytdlpcommandbuilder.AppSmokeTest#testFixedEdition com.blackware.ytdlpcommandbuilder.en.test/android.test.InstrumentationTestRunner | tee english-edition.txt
-            grep -q 'OK (1 test)' english-edition.txt
+            adb shell am instrument -w -e class com.blackware.ytdlpcommandbuilder.AppSmokeTest#testFixedEdition,com.blackware.ytdlpcommandbuilder.UpdateControllerTest#testAvailableUpdateWaitsForOfferConfirmation,com.blackware.ytdlpcommandbuilder.UpdateControllerTest#testClosingControllerDismissesOfferWithoutDownloading com.blackware.ytdlpcommandbuilder.en.test/android.test.InstrumentationTestRunner | tee english-edition.txt
+            grep -q 'OK (3 tests)' english-edition.txt
+            adb exec-out run-as com.blackware.ytdlpcommandbuilder.en cat cache/update-offer.png > update-offer-en-${{ matrix.api }}.png || rm -f update-offer-en-${{ matrix.api }}.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -119,6 +121,7 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             android-phone-*.png
+            update-offer-*.png
             process-*.txt
             english-edition.txt
   web-and-media:

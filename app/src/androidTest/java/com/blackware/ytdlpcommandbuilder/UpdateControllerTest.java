@@ -23,7 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Tests use local APK bytes and fake transport, never a live GitHub request/install. */
 public final class UpdateControllerTest extends InstrumentationTestCase {
     private static final String VERSION=BuildConfig.VERSION_NAME;
-    private static final String APK_URL="https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v"+VERSION+"/YT-DLP-Command-Builder-v"+VERSION+".apk";
+    private static final String APK_NAME="YT-DLP-Command-Builder-v"+VERSION+(BuildConfig.ENGLISH_EDITION ? "-EN.apk" : ".apk");
+    private static final String APK_URL="https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v"+VERSION+"/"+APK_NAME;
     private Activity activity;
     private UpdateController controller;
     private final AtomicReference<String> status=new AtomicReference<>("");
@@ -45,7 +46,7 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
     private void await() throws Exception { boolean completed=done.await(30,TimeUnit.SECONDS);assertTrue(status.get(),completed); }
     private JSONObject metadata(String digest) throws Exception {
         return new JSONObject().put("tag_name","v"+VERSION).put("assets",new JSONArray().put(new JSONObject()
-            .put("name","YT-DLP-Command-Builder-v"+VERSION+".apk")
+            .put("name",APK_NAME)
             .put("browser_download_url",APK_URL)
             .put("digest","sha256:"+digest).put("size",123)));
     }
@@ -73,22 +74,74 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
         setup(address->new ByteArrayInputStream(changed),"Güncelleme mevcut:");
         main(()->controller.check());await();getInstrumentation().waitForIdleSync();
     }
-    public void testAvailableUpdateWaitsForSecondButtonTap() throws Exception {
+    private android.app.AlertDialog offer() throws Exception {
+        java.lang.reflect.Field field=UpdateController.class.getDeclaredField("offerDialog");
+        field.setAccessible(true);return (android.app.AlertDialog)field.get(controller);
+    }
+    private android.widget.Button findButton(android.view.View view,String text) {
+        if(view instanceof android.widget.Button && text.contentEquals(((android.widget.Button)view).getText())) return (android.widget.Button)view;
+        if(view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group=(android.view.ViewGroup)view;
+            for(int i=0;i<group.getChildCount();i++) {android.widget.Button found=findButton(group.getChildAt(i),text);if(found!=null)return found;}
+        }
+        return null;
+    }
+    public void testAvailableUpdateWaitsForOfferConfirmation() throws Exception {
         launch();
-        java.util.concurrent.atomic.AtomicInteger requests=new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger metadataRequests=new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger apkRequests=new java.util.concurrent.atomic.AtomicInteger();
         AtomicReference<String> lastAddress=new AtomicReference<>("");
         byte[] release=metadata(new String(new char[64]).replace('\0','0')).toString().getBytes(StandardCharsets.UTF_8);
-        setup(address->{requests.incrementAndGet();lastAddress.set(address);return new ByteArrayInputStream(address.equals(UpdateController.RELEASES) ? release : new byte[]{1,2,3});},"Güncelleme mevcut:");
+        setup(address->{lastAddress.set(address);if(address.equals(UpdateController.RELEASES)){metadataRequests.incrementAndGet();return new ByteArrayInputStream(release);}apkRequests.incrementAndGet();return new ByteArrayInputStream(new byte[]{1,2,3});},UiText.get(activity,"Güncelleme mevcut:","Update available:"));
         main(()->controller.check());await();getInstrumentation().waitForIdleSync();
-        assertEquals(1,requests.get());assertEquals(UpdateController.RELEASES,lastAddress.get());
+        android.app.AlertDialog first=offer();assertNotNull(first);assertTrue(first.isShowing());
+        assertEquals(1,metadataRequests.get());assertEquals(0,apkRequests.get());
         main(()->assertTrue(controller.hasUpdate()));
         assertFalse(UpdateApkProvider.apk(activity).exists());
-        terminal="Güncelleme indirilemedi";done=new CountDownLatch(1);
-        main(()->controller.check());await();getInstrumentation().waitForIdleSync();
-        assertEquals(2,requests.get());
+        String later=UiText.get(activity,"Daha sonra","Later"),install=UiText.get(activity,"İndir ve yükle","Download & install");
+        main(()->{
+            android.widget.Button laterButton=findButton(first.getWindow().getDecorView(),later);
+            android.widget.Button installButton=findButton(first.getWindow().getDecorView(),install);
+            assertNotNull(laterButton);assertNotNull(installButton);
+            assertEquals(android.graphics.Color.rgb(190,190,190),laterButton.getCurrentTextColor());
+            assertEquals(android.graphics.Color.rgb(245,245,245),installButton.getCurrentTextColor());
+            assertEquals(android.graphics.Color.rgb(32,32,32),((android.graphics.drawable.GradientDrawable)installButton.getBackground()).getColor().getDefaultColor());
+        });
+        android.graphics.Bitmap screenshot=getInstrumentation().getUiAutomation().takeScreenshot();
+        if(screenshot!=null) {
+            try(FileOutputStream out=new FileOutputStream(new File(activity.getCacheDir(),"update-offer.png"))) {screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}
+            screenshot.recycle();
+        }
+        // A second check while the offer is open must not download or stack a dialog.
+        main(()->controller.check());getInstrumentation().waitForIdleSync();
+        assertSame(first,offer());assertEquals(1,metadataRequests.get());assertEquals(0,apkRequests.get());
+        main(()->findButton(first.getWindow().getDecorView(),later).performClick());getInstrumentation().waitForIdleSync();
+        assertFalse(first.isShowing());assertEquals(0,apkRequests.get());
+        // Reopening after Later or cancelling the offer still requires explicit confirmation.
+        done=new CountDownLatch(1);main(()->controller.check());await();getInstrumentation().waitForIdleSync();
+        android.app.AlertDialog cancelled=offer();main(cancelled::cancel);getInstrumentation().waitForIdleSync();
+        assertFalse(cancelled.isShowing());assertEquals(0,apkRequests.get());
+        done=new CountDownLatch(1);main(()->controller.check());await();getInstrumentation().waitForIdleSync();
+        android.app.AlertDialog confirmed=offer();assertNotNull(confirmed);
+        terminal=UiText.get(activity,"Güncelleme indirilemedi","The update could not be downloaded");done=new CountDownLatch(1);
+        main(()->findButton(confirmed.getWindow().getDecorView(),install).performClick());await();getInstrumentation().waitForIdleSync();
+        assertEquals(3,metadataRequests.get());assertEquals(1,apkRequests.get());
         assertEquals(APK_URL,lastAddress.get());
+        assertFalse(confirmed.isShowing());
         main(()->assertFalse(controller.hasUpdate()));
         assertFalse(new File(activity.getCacheDir(),"update.pending.apk").exists());
+    }
+    public void testClosingControllerDismissesOfferWithoutDownloading() throws Exception {
+        launch();
+        java.util.concurrent.atomic.AtomicInteger requests=new java.util.concurrent.atomic.AtomicInteger();
+        byte[] release=metadata(new String(new char[64]).replace('\0','0')).toString().getBytes(StandardCharsets.UTF_8);
+        setup(address->{requests.incrementAndGet();return new ByteArrayInputStream(release);},UiText.get(activity,"Güncelleme mevcut:","Update available:"));
+        main(()->controller.check());await();getInstrumentation().waitForIdleSync();
+        android.app.AlertDialog dialog=offer();assertNotNull(dialog);assertTrue(dialog.isShowing());
+        controller.close();getInstrumentation().waitForIdleSync();
+        assertFalse(dialog.isShowing());
+        main(()->controller.check());assertEquals(1,requests.get());
+        assertFalse(UpdateApkProvider.apk(activity).exists());
     }
     public void testNetworkAndCorruptDownloadsFailCleanly() throws Exception {
         launch();
