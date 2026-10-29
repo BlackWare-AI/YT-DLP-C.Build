@@ -79,7 +79,7 @@ final class UpdateController {
             Release release=offeredRelease;offeredRelease=null;download(release);return;
         }
         updateAvailable=false;
-        busy=true; status.show("Güncelleme kontrol ediliyor…",true);
+        busy=true; status.show(UiText.get(activity,"Güncelleme kontrol ediliyor…","Checking for updates…"),true);
         worker.execute(() -> {
             try {
                 JSONObject json;
@@ -93,16 +93,16 @@ final class UpdateController {
                 }
                 Release release=parse(json);
                 PackageInfo installed=activity.getPackageManager().getPackageInfo(activity.getPackageName(),0);
-                if (release==null) { finish("Yayımlanmış uygun bir APK bulunamadı."); return; }
+                if (release==null) { finish(UiText.get(activity,"Yayımlanmış uygun bir APK bulunamadı.","No suitable published APK was found.")); return; }
                 if (compareVersions(release.version,installed.versionName)<0 ||
                     release.digest.equals(sha256(new File(activity.getApplicationInfo().sourceDir)))) {
-                    finish("Uygulama güncel."); return;
+                    finish(UiText.get(activity,"Uygulama güncel.","The app is up to date.")); return;
                 }
                 ui(() -> {
                     offeredRelease=release;updateAvailable=true;
-                    busy=false; status.show("Güncelleme mevcut: "+release.version,false);
+                    busy=false; status.show(UiText.get(activity,"Güncelleme mevcut: ","Update available: ")+release.version,false);
                 });
-            } catch (Exception e) { finish("Güncelleme kontrol edilemedi. İnternet bağlantısını kontrol edip yeniden deneyin."); }
+            } catch (Exception e) { finish(UiText.get(activity,"Güncelleme kontrol edilemedi. İnternet bağlantısını kontrol edip yeniden deneyin.","Could not check for updates. Check your internet connection and try again.")); }
         });
     }
     static Release parse(JSONObject json) throws Exception {
@@ -158,7 +158,7 @@ final class UpdateController {
     void download(Release release) {
         if (busy || closed) return;
         updateAvailable=true;
-        busy=true; status.show("Güncelleme indiriliyor…",true);
+        busy=true; status.show(UiText.get(activity,"Güncelleme indiriliyor…","Downloading update…"),true);
         worker.execute(() -> {
             File part=new File(activity.getCacheDir(),"update.pending.apk");
             File apk=UpdateApkProvider.apk(activity);
@@ -172,7 +172,7 @@ final class UpdateController {
                         if (closed || (total+=n)>release.size) throw new IOException();
                         out.write(buffer,0,n);
                         int progress=(int)(100*total/release.size);
-                        if (progress!=last) { last=progress; ui(()->status.show("Güncelleme indiriliyor: %"+progress,true)); }
+                        if (progress!=last) { last=progress; ui(()->status.show(UiText.get(activity,"Güncelleme indiriliyor: %","Downloading update: %")+progress,true)); }
                     }
                     if (total!=release.size) throw new IOException("Incomplete APK");
                 }
@@ -180,10 +180,10 @@ final class UpdateController {
                 validatePackage(part);
                 if (!part.renameTo(apk)) throw new IOException();
                 readyDigest=release.digest; success=true;
-                ui(()->{ busy=false; status.show("Güncelleme indirildi.",false); install(); });
+                ui(()->{ busy=false; status.show(UiText.get(activity,"Güncelleme indirildi.","Update downloaded."),false); install(); });
             } catch (Exception ignored) { /* Cleanup completes before retry is enabled. */ }
             finally { part.delete(); if (!success) apk.delete(); }
-            if (!success) finish("Güncelleme indirilemedi veya doğrulanamadı. Yeniden deneyin.");
+            if (!success) finish(UiText.get(activity,"Güncelleme indirilemedi veya doğrulanamadı. Yeniden deneyin.","The update could not be downloaded or verified. Try again."));
         });
     }
     void validatePackage(File file) throws Exception {
@@ -210,11 +210,11 @@ final class UpdateController {
         return hex.toString();
     }
     private void install() {
-        if (!UpdateApkProvider.apk(activity).isFile() || readyDigest==null) { status.show("APK bulunamadı; yeniden kontrol edin.",false); return; }
+        if (!UpdateApkProvider.apk(activity).isFile() || readyDigest==null) { status.show(UiText.get(activity,"APK bulunamadı; yeniden kontrol edin.","APK not found; check again."),false); return; }
         try {
             if (!canInstall.getAsBoolean()) {
                 permissionPending=true;
-                status.show("Yükleme iznini açıp uygulamaya geri dönün.",false);
+                status.show(UiText.get(activity,"Yükleme iznini açıp uygulamaya geri dönün.","Allow installation, then return to the app."),false);
                 activity.startActivityForResult(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+activity.getPackageName())),INSTALL_PERMISSION);
                 return;
             }
@@ -222,14 +222,14 @@ final class UpdateController {
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.setClipData(ClipData.newRawUri("update",UpdateApkProvider.uri(activity)));
             activity.startActivity(intent);
-            status.show("Kurulumu Android ekranında onaylayın.",false);
-        } catch (Exception e) { permissionPending=false; status.show("Yükleme ekranı açılamadı. Yeniden deneyin.",false); }
+            status.show(UiText.get(activity,"Kurulumu Android ekranında onaylayın.","Confirm installation on the Android screen."),false);
+        } catch (Exception e) { permissionPending=false; status.show(UiText.get(activity,"Yükleme ekranı açılamadı. Yeniden deneyin.","Could not open the installer. Try again."),false); }
     }
     void onPermissionResult() {
         if (!permissionPending) return;
         permissionPending=false;
         if (canInstall.getAsBoolean()) install();
-        else status.show("Yükleme izni verilmedi. Güncelleme için yeniden kontrol edin.",false);
+        else status.show(UiText.get(activity,"Yükleme izni verilmedi. Güncelleme için yeniden kontrol edin.","Installation permission was not granted. Check for updates again."),false);
     }
     void close() {
         closed=true; offeredRelease=null;

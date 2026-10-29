@@ -162,7 +162,8 @@
       throw Error('Frame zamanı 0 ile 1 saniye arasında olmalı.');
     return String(Number(raw));
   }
-  function buildFrameCommand(settings, urls, items, min, max, req, cookies) {
+  function buildFrameCommand(settings, urls, items, min, max, req, cookies, language) {
+    const message=(tr,en)=>language==='en' ? en : tr;
     const target=frameTimestamp(settings);
     // Keep every improving candidate, then take the last one: the global nearest frame.
     // Selection, timestamp normalization and reverse leave source pixels untouched.
@@ -178,7 +179,7 @@
       'OUT='+shellPath('$HOME/storage/shared/Download/Apps/YT-DLP/Frame'),
       'FILTER='+quote(filter),
       'URLS=('+urls.map(quote).join(' ')+')',
-      "command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf '%s\\n' 'FFmpeg bulunamadı. Termux: pkg install ffmpeg' >&2; exit 127; }",
+      "command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf '%s\\n' '"+message("FFmpeg bulunamadı. Termux: pkg install ffmpeg","FFmpeg not found. Termux: pkg install ffmpeg")+"' >&2; exit 127; }",
       "mkdir -p -- \"$OUT\" || exit 1",
       "PRIVATE_BASE=${PREFIX:-$HOME/.cache}/tmp",
       "if ! mkdir -p -- \"$PRIVATE_BASE\" 2>/dev/null || [[ ! -w \"$PRIVATE_BASE\" ]]; then",
@@ -213,31 +214,31 @@
       "for URL in \"${URLS[@]}\"; do",
       '  if [[ $FIRST_URL -eq 0 ]]; then sleep '+min+'; fi',
       "  FIRST_URL=0",
-      "  ITEM_TMP=$(mktemp -d \"$RUN_TMP/item.XXXXXX\") || { FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — geçici klasör oluşturulamadı\"); continue; }",
+      "  ITEM_TMP=$(mktemp -d \"$RUN_TMP/item.XXXXXX\") || { FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — "+message("geçici klasör oluşturulamadı","could not create temporary directory")+"\"); continue; }",
       "  META_ARGS=()",
       '  if [[ "$URL" =~ ^https://www\\.instagram\\.com/stories/([^/?#]+) ]]; then META_ARGS=(--parse-metadata '+quote(storyMetadata)+'); fi',
       '  "${YTDLP[@]}" "${COMMON[@]}" "${COOKIES[@]}" "${SLEEP[@]}" "${SELECT[@]}" "${META_ARGS[@]}" --no-overwrites -f "bv" --download-sections "*0-1" -P "$ITEM_TMP" -o '+quote(template())+' -- "$URL"',
       "  if [[ $? -ne 0 ]]; then",
-      "    FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — indirme başarısız\")",
+      "    FAILURES=$((FAILURES+1)); ERRORS+=(\"$URL — "+message("indirme başarısız","download failed")+"\")",
       "    rm -rf -- \"$ITEM_TMP\"; continue",
       "  fi",
       "  SAVED=0",
-      "  REASON='video bulunamadı'",
+      "  REASON='"+message("video bulunamadı","video not found")+"'",
       "  for VIDEO in \"$ITEM_TMP\"/*; do",
       "    [[ -f \"$VIDEO\" ]] || continue",
       "    case \"$VIDEO\" in *.part|*.ytdl|*.jpg|*.json) continue;; esac",
-      "    REASON='kaynak çözünürlüğü okunamadı'",
+      "    REASON='"+message("kaynak çözünürlüğü okunamadı","could not read source dimensions")+"'",
       "    SOURCE_DIMENSIONS=$(video_dimensions \"$VIDEO\") || continue",
       "    [[ \"$SOURCE_DIMENSIONS\" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || continue",
       "    JPG=\"$ITEM_TMP/frame.jpg\"",
-      "    REASON='JPG oluşturulamadı veya doğrulanamadı'",
+      "    REASON='"+message("JPG oluşturulamadı veya doğrulanamadı","could not create or verify JPG")+"'",
       "    if ! ffmpeg -hide_banner -loglevel error -nostdin -y -i \"$VIDEO\" -map 0:v:0 -vf \"$FILTER\" -frames:v 1 -q:v 1 -pix_fmt yuvj444p \"$JPG\" || ! valid_jpg; then",
       "      rm -f -- \"$JPG\"",
       "      ffmpeg -hide_banner -loglevel error -nostdin -y -i \"$VIDEO\" -map 0:v:0 -frames:v 1 -q:v 1 -pix_fmt yuvj444p \"$JPG\" || continue",
       "      valid_jpg || continue",
       "    fi",
       "    BASE=${VIDEO##*/}; BASE=${BASE%.*}; BASE=${BASE%-*}",
-      "    REASON='JPG hedef klasöre aktarılamadı'",
+      "    REASON='"+message("JPG hedef klasöre aktarılamadı","could not publish JPG to output folder")+"'",
       "    PUBLISH_TMP=$(mktemp -d \"$OUT/.frame-publish.XXXXXX\") || continue",
       "    STAGED=\"$PUBLISH_TMP/frame.jpg\"",
       "    if cp -- \"$JPG\" \"$STAGED\" && cmp -s -- \"$JPG\" \"$STAGED\"; then",
@@ -259,7 +260,7 @@
       "done",
       "cleanup",
       "trap - EXIT HUP INT TERM",
-      "printf 'Başarılı JPG: %d | Başarısız JPG: %d\\n' \"$SUCCESS\" \"$FAILURES\"",
+      "printf '"+message("Başarılı JPG: %d | Başarısız JPG: %d","Successful JPGs: %d | Failed JPGs: %d")+"\\n' \"$SUCCESS\" \"$FAILURES\"",
       "if [[ ${#ERRORS[@]} -gt 0 ]]; then printf '%s\\n' \"${ERRORS[@]}\" >&2; fi",
       "[[ $FAILURES -eq 0 ]]"
     ];
@@ -286,7 +287,7 @@
     const cookies = s.cookies.trim() ? shellPath(s.cookies) : null;
     const cuts = ['av','video'].includes(s.mode) ? (input.cuts || []).map(validateCut) :
       s.mode === 'still' ? [{start:'0',end:'1'}] : [];
-    if(s.mode==='frame') return {command:buildFrameCommand(s,urls,items,min,max,req,cookies),urls,settings:s,cuts:[],selection:input.selection||{},commandCount:1};
+    if(s.mode==='frame') return {command:buildFrameCommand(s,urls,items,min,max,req,cookies,input.language),urls,settings:s,cuts:[],selection:input.selection||{},commandCount:1};
     const args = [s.engine === 'normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp'), '--ignore-config', '--no-playlist'];
     if (items) args.push('--playlist-items ' + quote(items));
     if (cookies) args.push('--cookies ' + cookies);

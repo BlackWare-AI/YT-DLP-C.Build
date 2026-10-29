@@ -34,21 +34,98 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('#updateSection').count(),0);
   assert.equal(await page.textContent('#checkUpdate'),'Güncelle');
   const updateStyle=()=>page.locator('#checkUpdate').evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,size:s.fontSize};});
-  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'14px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'15px'});
   await page.evaluate(()=>window.setUpdateStatus('Güncelleme mevcut: 1.1.3',false,true));
-  assert.deepEqual(await updateStyle(),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',size:'14px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',size:'15px'});
   assert.equal(await page.textContent('#checkUpdate'),'Güncelle');
   await page.evaluate(()=>window.setUpdateStatus('Uygulama güncel.',false,false));
-  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'14px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'15px'});
   assert.equal(await page.evaluate(()=>document.getElementById('checkUpdate').parentElement.className),'app-footer-header');
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
     const bounds=await page.evaluate(()=>Array.from(document.querySelector('.app-footer-header').children).map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};}));
-    assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left,'footer controls do not overlap');
-    assert.ok(bounds[1].width<=160 && bounds[1].width>0);
+    assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left && bounds[2].right<=bounds[3].left,'footer controls do not overlap');
+    assert.ok(bounds[1].width<=118 && bounds[1].width>0);
+    assert.equal(bounds[2].width,bounds[3].width);
+    assert.equal(await page.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   }
   await page.setViewportSize({width:390,height:844});
+
+  // Language switching changes product copy only, preserving all drafts and archives.
+  const langPage=await context.newPage();
+  await langPage.goto(url);
+  await langPage.fill('#links','https://instagram.com/stories/example.user');
+  await langPage.evaluate(()=>{
+    state.notes='Türkçe özel notum\nstories/example.user/123 V';
+    state.notesDailyHistory=[{date:'2026-10-27',notes:'Değişmeyen günlük notu'}];
+    state.history=[{date:'2026-10-27T09:00:00Z',count:1,urls:['https://www.instagram.com/reel/abc'],engine:'experimental',mode:'av',command:'untouched archived command',snapshot:{schema:2,settings:{...state.settings},links:'https://www.instagram.com/reel/abc',cuts:[],selection:{}}}];
+    state.cuts=[{start:'0',end:'1'}];save();hydrate();
+  });
+  const beforeLanguage=await langPage.evaluate(()=>JSON.stringify({settings:state.settings,links:state.links,notes:state.notes,cuts:state.cuts,history:state.history,notesDailyHistory:state.notesDailyHistory}));
+  const beforeCommand=await langPage.textContent('#output');
+  await langPage.click('#languageBtn');
+  assert.equal(await langPage.getAttribute('html','lang'),'en');
+  assert.equal(await langPage.textContent('#languageBtn'),'TR');
+  assert.equal(await langPage.textContent('#checkUpdate'),'Update');
+  assert.equal(await langPage.locator('#copy').innerText(),'Copy command');
+  assert.equal(await langPage.textContent('#count'),'1 links');
+  assert.match(await langPage.textContent('#itemScope'),/Positions follow/);
+  assert.equal(await langPage.textContent('#output'),beforeCommand);
+  assert.equal(await langPage.evaluate(()=>JSON.stringify({settings:state.settings,links:state.links,notes:state.notes,cuts:state.cuts,history:state.history,notesDailyHistory:state.notesDailyHistory})),beforeLanguage);
+  const untranslated=await langPage.evaluate(()=>{
+    const issues=[];
+    for(const {node,source} of staticCopy)if(node.textContent.trim()===source && english[source]!==source)issues.push(source);
+    for(const {node,name,source} of attributeCopy)if(node.getAttribute(name)===source && english[source]!==source)issues.push(source);
+    return issues;
+  });
+  assert.deepEqual(untranslated,[]);
+  await langPage.fill('#itemOnly','0');
+  assert.match(await langPage.textContent('#error'),/integer of 1 or greater/);
+  await langPage.fill('#itemOnly','');
+  await langPage.locator('#cuts input').first().fill('0');
+  await langPage.locator('#cuts input').nth(1).fill('0');
+  assert.match(await langPage.textContent('#error'),/Segment 1: the end must be greater/);
+  await langPage.locator('#cuts input').nth(1).fill('1');
+  await langPage.click('#historyBtn');
+  assert.equal(await langPage.textContent('#historyTab'),'Command History');
+  assert.match(await langPage.textContent('#history h3'),/October/);
+  await langPage.locator('.history-item summary').first().click();
+  await langPage.waitForSelector('.history-item button');
+  assert.match(await langPage.locator('.history-item').innerText(),/Experimental/);
+  assert.match(await langPage.locator('.history-item').innerText(),/Edit again/);
+  assert.match(await langPage.locator('.history-item pre').innerText(),/untouched archived command/);
+  await langPage.click('#notesLogTab');
+  await langPage.locator('.daily-note-item summary').click();
+  assert.equal(await langPage.locator('.daily-note-item pre').innerText(),'Değişmeyen günlük notu');
+  await langPage.click('#close');
+  await langPage.click('#notesBtn');
+  assert.equal(await langPage.textContent('#notesTitle'),'Link Notes');
+  assert.equal(await langPage.inputValue('#notes'),'Türkçe özel notum\nstories/example.user/123 V');
+  await langPage.click('#notesClear');
+  assert.equal(await langPage.textContent('#confirmTitle'),'Clear Link Notes');
+  assert.match(await langPage.textContent('#confirmMessage'),/Notes Log and command history will be kept/);
+  await langPage.click('#confirmCancel');await langPage.click('#notesClose');
+  await langPage.click('#checkUpdate');
+  assert.match(await langPage.textContent('#updateStatus'),/Android app/);
+  await langPage.reload();
+  assert.equal(await langPage.getAttribute('html','lang'),'en');
+  for(const width of [320,390,650]) {
+    await langPage.setViewportSize({width,height:844});
+    assert.equal(await langPage.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false);
+    assert.equal(await langPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }
+  for(const mode of ['av','video','audio','still','frame']) {
+    await langPage.click('#modes [data-value='+mode+']');
+    assert.doesNotMatch(await langPage.textContent('#modeHint'),/[çğıöşüÇĞİÖŞÜ]/);
+  }
+  assert.match(await langPage.textContent('#output'),/Successful JPGs:/);
+  assert.doesNotMatch(await langPage.textContent('#output'),/Başarılı|başarısız|bulunamadı|çözünürlüğü/);
+  await langPage.click('#languageBtn');
+  assert.equal(await langPage.getAttribute('html','lang'),'tr');
+  assert.equal(await langPage.textContent('#checkUpdate'),'Güncelle');
+  assert.match(await langPage.textContent('#output'),/Başarılı JPG:/);
+  await langPage.close();
 
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
   assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));

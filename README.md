@@ -1,10 +1,27 @@
 # YT-DLP Command Builder
 
-**A lightweight, offline Android app for building ready-to-use yt-dlp commands for Termux.**
+**Instagram bağlantıları için yt-dlp ve yt-dlp forklarının indirme seçeneklerini kolayca ayarlayıp Termux'ta çalıştırılacak komutlar hazırlayan Android uygulaması.**
 
-YT-DLP Command Builder helps you prepare download commands without manually writing long terminal instructions. Paste your Instagram links, choose the output format and optional video segments, then copy the generated command into Termux.
+**An Android command builder that makes it easy to configure yt-dlp or yt-dlp forks for Instagram links and run the resulting commands in Termux.**
 
-**The app creates commands only.** It does not download media, open Instagram links, access accounts, or execute yt-dlp.
+Bağlantıları ekle, motoru ve indirme biçimini seç, komutu kopyalayıp Termux'a yapıştır. Uygulama yalnızca komut oluşturur; indirme ve dönüştürme işlemlerini Termux'ta yt-dlp/FFmpeg gerçekleştirir. Uygulama Instagram hesabına giriş yapmaz veya bağlantıların erişilebilirliğini kontrol etmez.
+
+Add your links, select an engine and download mode, then copy the command into Termux. The app only builds commands; yt-dlp/FFmpeg in Termux performs downloading and conversion. The app does not sign in to Instagram or check whether links are accessible.
+
+## Türkçe kullanım kılavuzu
+
+1. **Hazırlık:** Android 10 veya üzeri cihazına APK'yı ve Termux'u kur. Termux'ta çalışır bir yt-dlp kurulumu bulunsun; birleştirme, kesit ve JPG için FFmpeg de kurulu olmalı. Ortak depolama kullanacaksan Termux'a depolama erişimi ver.
+2. **Dil:** Alt bölümde Güncelle ile Geçmiş arasındaki **EN** düğmesine bir kez basarak İngilizceye geç. **TR** ile Türkçeye dön. Seçimin kaydedilir; notların ve geçmişin değişmez.
+3. **Motor:** Standart yt-dlp için **Normal**, Story fork kurulumu için **Deneysel** seç. Deneysel komut `$HOME/yt-dlp-story-test/bin/yt-dlp` dosyasını kullanır; bu kurulum Termux'ta önceden bulunmalı.
+4. **Biçim:** **Video + Ses**, **Sessiz Video**, **Yalnızca Ses**, ilk saniyelik sessiz **Kısa Kesit** veya tek JPG için **Yalnızca Kare** seç. Tüm bağlantılara aynı seçim uygulanır.
+5. **Bağlantılar:** Bir veya daha fazla Instagram Story, Reels veya gönderi bağlantısını alana yapıştır. Pano düğmesi mevcut listeye ekler; yinelenen bağlantılar atlanır. Tek bağlantı eklemek için alttaki alanı ve **+ Ekle** düğmesini kullan.
+6. **İsteğe bağlı seçim:** Hesap listesi veya çoklu gönderi için sıra alanlarını kullan; 1 ilk öğedir. Kesit istiyorsan başlangıç/bitiş saniyelerini gir. Kare modunda varsayılan **0,5 saniye** veya ilk saniye içindeki özel zamanı seç.
+7. **Yollar:** **Gelişmiş ayarlar** içindeki indirme klasörü ve cookies.txt yolunu kendi Termux kurulumuna göre düzenle. Cookies içeriği uygulamaya alınmaz. Boş cookies yolu komuta eklenmez.
+8. **Çalıştır:** **Komutu kopyala** düğmesine bas, Termux'u aç, komutu yapıştır ve çalıştır. Başarılı kopyalama komutu geçmişe kaydeder; bağlantı, kesit ve sıra alanlarını temizler. İndirme sonuçları uygulamada takip edilmez.
+9. **Notlar ve geçmiş:** **Link Notları** kalıcı not alanıdır. Geçmiş düğmesinden kopyalanan komutları ve günlük **Not Günlüğü** kayıtlarını açabilir, TXT veya tam JSON yedeği dışa aktarabilirsin. Her gün tek not kaydı tutulur; o gün yapılan değişiklikler aynı kaydı günceller.
+10. **Uygulamayı güncelle:** **Güncelle** GitHub sürümünü kontrol eder. Güncelleme varsa düğme beyaz olur; tekrar bastığında APK indirilip doğrulanır ve Android yükleme ekranı açılır. Son yüklemeyi Android ekranında onayla.
+
+Yalnızca Kare modu ilk saniyeden bir JPG üretir ve geçici videoyu temizler. JPG'ler `$HOME/storage/shared/Download/Apps/YT-DLP/Frame/` klasörüne gider. Süresi dolmuş veya erişilemeyen içerikler seçilen motor tarafından indirilemeyebilir.
 
 ## Our goal
 
@@ -27,16 +44,20 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 - **Offline and private:** no analytics, ads or account login. Command building stays offline; the optional GitHub updater uses network access only when requested.
 - **AMOLED-friendly interface:** a minimal black design optimized for Android.
 
-## How to use
+## English usage guide
 
-1. Install the Android APK from a build or release.
-2. Choose **Normal yt-dlp** or **Experimental yt-dlp**.
-3. Select a mode: **Video + Ses**, **Sessiz Video**, **Yalnızca Ses**, **Kısa Kesit**, or **Yalnızca Kare**.
-4. Paste one or more supported links.
-5. Add video segments if needed, or adjust paths and delays under advanced settings.
-6. Tap the full-width **Copy Command** button below the engine/mode panel, open Termux, paste the command, and run it. Successful copying saves the command to history and clears the link field, video segments and item selection while keeping engine, format and advanced settings. Failed copying keeps the links.
+1. **Prepare Termux:** Install the APK on Android 10 or later, install Termux, and set up working yt-dlp and FFmpeg executables. Allow Termux access to shared storage if using a shared download folder.
+2. **Choose a language:** Tap **EN** between Update and History to switch to English; tap **TR** to return to Turkish. The language is remembered without modifying notes or history.
+3. **Choose an engine:** **Standard** uses `yt-dlp`. **Experimental** uses the separately installed Story fork at `$HOME/yt-dlp-story-test/bin/yt-dlp`.
+4. **Choose a mode:** **Video + Audio**, **Silent Video**, **Audio Only**, **Short Clip** (the first silent second), or **Frame Only** (one JPG). All links in the batch share these settings.
+5. **Add Instagram links:** Paste one or more Story, Reels or post links. The clipboard button appends supported links and skips duplicates. Use the smaller field and **+ Add** for another link.
+6. **Adjust optional selections:** Use item positions for account lists or post carousels (1 means the first item). Add video start/end segments if needed. Frame Only offers **0.5 seconds** or a custom time within the first second.
+7. **Check paths:** Open **Advanced settings** and enter your Termux download folder and cookies.txt path. The app stores the path only. Leave cookies blank to omit the option.
+8. **Run the command:** Tap **Copy command**, open Termux, paste and execute it. Successful copying saves a history record and clears link, segment and position fields. Download results are handled in Termux.
+9. **Keep notes and backups:** **Link Notes** stores your notes. Open History for copied commands and the daily **Notes Log**, or export TXT/full JSON backups. Each day has one note record; changes that day update it.
+10. **Update the app:** Tap **Update** to check GitHub. If an update is available, the button turns white. Tap it again to download and verify the APK, then confirm installation in Android.
 
-All links in one batch use the same mode and settings. The application does not check whether a media item exists or is accessible.
+Frame Only keeps one verified JPG per link in `$HOME/storage/shared/Download/Apps/YT-DLP/Frame/` and removes temporary video. The selected engine may be unable to download expired or inaccessible content.
 
 ## Requirements
 
@@ -121,4 +142,4 @@ Bug reports, feature suggestions, pull requests, and forks are welcome. Please k
 
 ## In-app updates
 
-The bottom **Güncellemeleri kontrol et** button checks the latest public GitHub Release. **İndir ve yükle** downloads the release APK into private cache, checks its SHA-256, package name, signing certificate and version, then opens Android’s installer. Android may first ask you to allow installs from this app. Installation always requires Android’s confirmation. Same-version APK replacements are detected using the release asset hash. No Instagram content or cookies are sent by the updater.
+The compact **Update / Güncelle** button beside the language and history buttons checks the latest public GitHub Release. When an update is available, it turns white with black text; a second tap downloads the release APK into private cache, checks its SHA-256, package name, signing certificate and version, then opens Android’s installer. Android may first ask you to allow installs from this app. Installation always requires Android’s confirmation. Same-version APK replacements are detected using the release asset hash. No Instagram content or cookies are sent by the updater.

@@ -168,4 +168,19 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             assertTrue("Two consecutive back presses exit",activity.isFinishing());
         } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
     }
+    public void testLanguageFollowsSelectionAndSurvivesActivityRestart() throws Exception {
+        launch();
+        try {
+            await("typeof state==='object' && typeof applyLanguage==='function'");
+            js("language='tr';state.language='tr';applyLanguage();save();document.getElementById('languageBtn').click();true");
+            assertEquals("true",js("document.documentElement.lang==='en' && document.getElementById('checkUpdate').textContent==='Update' && JSON.parse(Android.getState()).language==='en'"));
+            assertEquals("English native messages", "English", UiText.get(activity,"Türkçe","English"));
+            getInstrumentation().runOnMainSync(() -> activity.finish());
+            getInstrumentation().waitForIdleSync();launch();
+            await("document.documentElement.lang==='en' && document.getElementById('languageBtn').textContent==='TR'");
+            js("document.getElementById('languageBtn').click();true");
+            assertEquals("true",js("document.documentElement.lang==='tr' && document.getElementById('checkUpdate').textContent==='Güncelle'"));
+            assertEquals("Türkçe",UiText.get(activity,"Türkçe","English"));
+        } finally { getInstrumentation().runOnMainSync(() -> activity.finish()); }
+    }
 }
