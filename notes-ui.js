@@ -16,7 +16,7 @@ window.NotesUI={attach(editor) {
     const style=getComputedStyle(editor);
     const key=JSON.stringify([editor.value,editor.clientWidth,style.font,style.padding,style.letterSpacing]);
     if(key===measuredKey) {scroll();return;}
-    measuredKey=key;layer.replaceChildren();positions=[];
+    measuredKey=key;layer.textContent='';positions=[];
     const offsets=Builder.noteSeparatorOffsets(editor.value);
     if(!offsets.length) return;
     const mirror=document.createElement('div');
