@@ -49,7 +49,7 @@ const root=path.resolve(__dirname,'..');
     assert.ok(bounds[1].width<=118 && bounds[1].width>0);
     assert.equal(bounds[2].width,bounds[3].width);
     await page.locator('.app-footer-header').screenshot({path:path.join(root,'test-results/footer-tr-'+width+'.png')});
-    assert.equal(await page.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false,JSON.stringify({width,bounds}));
+    assert.equal(await page.locator('#checkUpdate').evaluate(el=>el.scrollWidth>el.clientWidth),false,JSON.stringify({width,bounds,style:await page.locator('#checkUpdate').evaluate(el=>{const s=getComputedStyle(el),r=document.createRange();r.selectNodeContents(el);return {scroll:el.scrollWidth,client:el.clientWidth,text:r.getBoundingClientRect().width,padding:s.padding,font:s.font};})}));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   }
   await page.setViewportSize({width:390,height:844});
