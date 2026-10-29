@@ -13,7 +13,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 ## Features
 
 - **Two engines:** choose standard `yt-dlp` or a custom experimental yt-dlp installation.
-- **Download modes:** video with audio, video without audio, audio only, a one-second StillClip, and **Frame** for one high-quality JPG image from a selected video time.
+- **Download modes:** video with audio, video without audio, audio only, a one-second **Kısa Kesit** (`StillClip`), and **Yalnızca Kare** (`Frame`) for one high-quality JPG image from a selected video time.
 - **Multiple Instagram links:** accept Stories, `/reel/`, `/p/`, and `/tv/` links on `instagram.com` or `www.instagram.com`. Clean share parameters, split glued links, and remove duplicates without querying the media. Other domains, credentials and spoofed domains are rejected; Story IDs have no length restriction.
 - **Paste from clipboard:** tap the small clipboard button inside the link field to append Instagram links without replacing the current draft. Repeated links are skipped. The clipboard is read only when you tap the button.
 - **Optional item positions:** for Story account lists, profile lists and post carousels, leave the three fields blank or enter an exact ordinal, an exclusive after/before boundary, or both boundaries. The panel sits between links and video cuts and works in every mode. For example, after 3 and before 7 selects items 4–6 via `--playlist-items "4:6"`. Indices are 1-based in the order returned by yt-dlp, not media IDs or guaranteed chronological order. The same selection applies to collection links in the batch; direct Story links retain `--no-playlist`. Profile-post enumeration depends on the selected motor and is currently marked non-working in upstream yt-dlp; Story account URLs use `/stories/username/`.
@@ -31,7 +31,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 
 1. Install the Android APK from a build or release.
 2. Choose **Normal yt-dlp** or **Experimental yt-dlp**.
-3. Select the download mode.
+3. Select a mode: **Video + Ses**, **Sessiz Video**, **Yalnızca Ses**, **Kısa Kesit**, or **Yalnızca Kare**.
 4. Paste one or more supported links.
 5. Add video segments if needed, or adjust paths and delays under advanced settings.
 6. Tap the full-width **Copy Command** button below the engine/mode panel, open Termux, paste the command, and run it. Successful copying saves the command to history and clears the link field, video segments and item selection while keeping engine, format and advanced settings. Failed copying keeps the links.
@@ -58,7 +58,7 @@ The default cookies file is:
 $HOME/storage/shared/Download/Apps/YT-DLPTemp/cookies.txt
 ```
 
-These are independent configurable paths. The app stores the path, not the contents of your cookies file. Outputs go into `Video` (video with/without audio), `Audio` (audio), or `SClip` (StillClip) below the main download directory. Frame JPG files go to `$HOME/storage/shared/Download/Apps/YT-DLP/Frame/`. yt-dlp and the generated Frame command reuse or create their output folders.
+These are independent configurable paths. The app stores the path, not the contents of your cookies file. Outputs go into `Video` (video with/without audio), `Audio` (audio), or `SClip` (Kısa Kesit / internal mode `StillClip`) below the main download directory. Yalnızca Kare JPG files go to `$HOME/storage/shared/Download/Apps/YT-DLP/Frame/` (the existing `Frame` folder name is unchanged). yt-dlp and the generated Frame command reuse or create their output folders.
 
 Commands use safely escaped double-quoted arguments. Only a leading `$HOME` in a path expands; other shell substitutions stay literal. All URLs and repeated `--download-sections` options belong to one command. Frame uses the experimental yt-dlp executable and its configured cookies to download only the `*0-1` video section into a private temporary directory. FFmpeg selects the closest real frame on either side of the target (default 0.5 seconds), including the final available frame in a short or low-FPS clip. It encodes one JPG using `-q:v 1 -pix_fmt yuvj444p` at source dimensions, with no resizing, sharpening or image effects. If extraction fails or returns no valid JPG, the same temporary video supplies its first valid frame. Standard JPG is lossy. Frame keeps only one verified JPG per URL; no video retention choice remains. The generated command is a single isolated Bash invocation with no input prompts. Temporary files use `mktemp -d` in Termux private storage, with a HOME cache fallback when needed; explicit cleanup and signal/exit traps remove only the directories created by that run. Validated JPG bytes are staged and moved without overwriting existing filenames. A final summary counts successful/failed JPGs and lists failed URLs with brief reasons. Custom target times remain within the downloaded first second. Audio uses `-f "ba/b" -x --audio-format best` with artwork enabled by default. No forced MP3/M4A conversion or `--force-keyframes-at-cuts` is added. Cuts can align with source keyframes rather than exact requested boundaries.
 
