@@ -1,5 +1,7 @@
 ## YT-DLP Command Builder 1.1.3
 
+- Güncelle düğmesi önceki 14 px yazı boyutuyla uygulama adı ile geçmiş simgesi arasındadır. Ayrı durum kutusu ve güncelleme teklifi penceresi kaldırıldı. Güncelleme varsa düğme beyaz/siyah olur; ikinci dokunuş APK indirmeyi başlatır.
+
 - ICC renk profili bulunan Instagram videolarında çözünürlük okumasının geçerli videoyu reddetmesi düzeltildi.
 
 - Frame, ilk saniyeden 0,5 saniyeye veya özel zamana en yakın gerçek kareyi yüksek kaliteli JPG olarak çıkarır. Hedef çıkarılamazsa ilk geçerli kareyi dener.

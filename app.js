@@ -455,10 +455,12 @@ hydrate();
 if(storageError) $('status').textContent=storageError;
 checkNotesDailyLog();
 
-window.setUpdateStatus=(message,busy)=>{
-  $('updateSection').hidden=!message;
+window.setUpdateStatus=(message,busy,available=false)=>{
   $('updateStatus').textContent=message;
-  $('checkUpdate').disabled=Boolean(busy);
+  const button=$('checkUpdate');
+  button.disabled=Boolean(busy);
+  button.classList.toggle('update-available',Boolean(available));
+  button.setAttribute('aria-label',message ? 'Güncelle. '+message : 'Güncelle');
 };
 $('checkUpdate').onclick=()=>{
   if(window.Android && typeof Android.checkUpdates==='function') {

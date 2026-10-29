@@ -71,6 +71,23 @@ public final class UpdateControllerTest extends InstrumentationTestCase {
         setup(address->new ByteArrayInputStream(changed),"Güncelleme mevcut:");
         main(()->controller.check());await();getInstrumentation().waitForIdleSync();
     }
+    public void testAvailableUpdateWaitsForSecondButtonTap() throws Exception {
+        launch();
+        java.util.concurrent.atomic.AtomicInteger requests=new java.util.concurrent.atomic.AtomicInteger();
+        AtomicReference<String> lastAddress=new AtomicReference<>("");
+        byte[] release=metadata(new String(new char[64]).replace('\0','0')).toString().getBytes(StandardCharsets.UTF_8);
+        setup(address->{requests.incrementAndGet();lastAddress.set(address);return new ByteArrayInputStream(address.equals(UpdateController.RELEASES) ? release : new byte[]{1,2,3});},"Güncelleme mevcut:");
+        main(()->controller.check());await();getInstrumentation().waitForIdleSync();
+        assertEquals(1,requests.get());assertEquals(UpdateController.RELEASES,lastAddress.get());
+        main(()->assertTrue(controller.hasUpdate()));
+        assertFalse(UpdateApkProvider.apk(activity).exists());
+        terminal="Güncelleme indirilemedi";done=new CountDownLatch(1);
+        main(()->controller.check());await();getInstrumentation().waitForIdleSync();
+        assertEquals(2,requests.get());
+        assertEquals("https://github.com/BlackWare-AI/YT-DLP-Command-Builder/releases/download/v1.1.3/YT-DLP-Command-Builder-v1.1.3.apk",lastAddress.get());
+        main(()->assertFalse(controller.hasUpdate()));
+        assertFalse(new File(activity.getCacheDir(),"update.pending.apk").exists());
+    }
     public void testNetworkAndCorruptDownloadsFailCleanly() throws Exception {
         launch();
         setup(address->{throw new java.io.IOException("offline");},"Güncelleme kontrol edilemedi.");
