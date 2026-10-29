@@ -31,6 +31,7 @@ const root=path.resolve(__dirname,'..');
   await page.evaluate(()=>{delete window.Android;window.setUpdateStatus('İndiriliyor',true);});
   assert.equal(await page.locator('#checkUpdate').isDisabled(),true);
   await page.evaluate(()=>window.setUpdateStatus('',false));
+  assert.equal(await page.locator('#updateSection').isVisible(),false);
   assert.equal(await page.evaluate(()=>document.querySelector('main').lastElementChild.id),'updateSection');
   assert.equal(await page.evaluate(()=>document.getElementById('checkUpdate').parentElement.className),'app-footer-header');
   for(const width of [320,390,650]) {
@@ -214,6 +215,7 @@ const root=path.resolve(__dirname,'..');
   await page.evaluate(()=>{delete window.Android;window.setUpdateStatus('İndiriliyor',true);});
   assert.equal(await page.locator('#checkUpdate').isDisabled(),true);
   await page.evaluate(()=>window.setUpdateStatus('',false));
+  assert.equal(await page.locator('#updateSection').isVisible(),false);
   console.log('PASS: previous APK settings migrate to explicit AV and best source audio');
   await page.click('#notesBtn');await page.fill('#notes','recovery note');await page.click('#notesClose');
   await page.click('#notesBtn');

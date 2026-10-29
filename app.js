@@ -456,6 +456,7 @@ if(storageError) $('status').textContent=storageError;
 checkNotesDailyLog();
 
 window.setUpdateStatus=(message,busy)=>{
+  $('updateSection').hidden=!message;
   $('updateStatus').textContent=message;
   $('checkUpdate').disabled=Boolean(busy);
 };
