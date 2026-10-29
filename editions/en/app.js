@@ -8,7 +8,7 @@ const english={
   "Deneysel": "Experimental",
   "Ne indireceksin?": "What will you download?",
   "En iyi kalite": "Best quality",
-  "Video + Ses": "Video + Audio",
+  "Video + Ses": "Video & Audio",
   "Tek dosyada": "In one file",
   "Sessiz Video": "Silent Video",
   "Yalnızca görüntü": "Video only",
@@ -217,6 +217,7 @@ for(const node of document.querySelectorAll('[placeholder],[aria-label],[title]'
 }
 function applyLanguage() {
   document.documentElement.lang=language;
+  document.querySelector('#modes [data-value=av] strong').style.fontSize='clamp(10px,3vw,12px)';
   for(const {node,source,leading,trailing} of staticCopy)node.textContent=leading+t(source)+trailing;
   for(const {node,name,source} of attributeCopy)node.setAttribute(name,t(source));
   const status=document.getElementById('updateStatus');

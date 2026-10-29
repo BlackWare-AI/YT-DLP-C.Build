@@ -53,7 +53,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 1. **Prepare Termux:** Install the APK on Android 10 or later, install Termux, and set up working yt-dlp and FFmpeg executables. Allow Termux access to shared storage if using a shared download folder.
 2. **Choose an edition:** The regular APK on the same GitHub Release page is Turkish; the **-EN.apk** asset is English. There is no in-app language switch. EN installs separately without replacing the Turkish app or its data.
 3. **Choose an engine:** **Standard** uses `yt-dlp`. **Experimental** uses the separately installed Story fork at `$HOME/yt-dlp-story-test/bin/yt-dlp`.
-4. **Choose a mode:** **Video + Audio**, **Silent Video**, **Audio Only**, **Short Clip** (the first silent second), or **Frame Only** (one JPG). All links in the batch share these settings.
+4. **Choose a mode:** **Video & Audio**, **Silent Video**, **Audio Only**, **Short Clip** (the first silent second), or **Frame Only** (one JPG). All links in the batch share these settings.
 5. **Add Instagram links:** Paste one or more Story, Reels or post links. The clipboard button appends supported links and skips duplicates. Use the smaller field and **+ Add** for another link.
 6. **Adjust optional selections:** Use item positions for account lists or post carousels (1 means the first item). Add video start/end segments if needed. Frame Only offers **0.5 seconds** or a custom time within the first second.
 7. **Check paths:** Open **Advanced settings** and enter your Termux download folder and cookies.txt path. The app stores the path only. Leave cookies blank to omit the option.
