@@ -18,6 +18,45 @@ const root=path.resolve(__dirname,'..');
  try{
   const url='http://127.0.0.1:'+server.address().port;
   await page.goto(url);assert.equal(await page.locator('#cuts .cut').count(),0);
+  const removalContext=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const removal=await removalContext.newPage();
+  await removal.goto(url);
+  for(const width of [320,390,650]) {
+    await removal.setViewportSize({width,height:844});
+    const preview=await removal.locator('#links').evaluate(el=>{el.scrollTop=1000;return {top:el.scrollTop,fits:el.scrollHeight<=el.clientHeight,overflow:getComputedStyle(el).overflowY};});
+    assert.deepEqual(preview,{top:0,fits:true,overflow:'hidden'});
+  }
+  await removal.setViewportSize({width:390,height:844});
+  await removal.evaluate(()=>{state.notes='stories/saved.notes/999 V';state.notesDailyHistory=[{date:'2026-10-28',notes:'stories/archive/998 S'}];save();hydrate();});
+  await removal.fill('#links','stories/example/123/\nreel/ABC/\np/POST/\nhttps://instagram.com/stories/example/123?utm_source=x');
+  assert.equal(await removal.locator('#linkList .link-row').count(),3);
+  await removal.locator('#linkList .link-row button').first().tap();
+  assert.equal(await removal.locator('#linkList .link-row').count(),2);
+  assert.doesNotMatch(await removal.inputValue('#links'),/example\/123/);
+  assert.match(await removal.textContent('#output'),/reel\/ABC/);assert.doesNotMatch(await removal.textContent('#output'),/example\/123/);
+  await removal.reload();
+  assert.equal(await removal.locator('#linkList .link-row').count(),2);
+  assert.equal(await removal.evaluate(()=>state.notes),'stories/saved.notes/999 V');
+  assert.equal(await removal.evaluate(()=>state.notesDailyHistory.find(r=>r.date==='2026-10-28').notes),'stories/archive/998 S');
+  await removal.locator('#linkList .link-row button').last().tap();
+  assert.equal(await removal.locator('#linkList .link-row').count(),1);
+  await removal.locator('#linkList .link-row button').first().tap();
+  assert.equal(await removal.locator('#linkList .link-row').count(),0);
+  assert.equal(await removal.locator('#copy').isDisabled(),true);
+  await removal.fill('#links','@example.user\nstories/other/2');
+  await removal.locator('#linkList .link-row button').first().tap();
+  assert.equal(await removal.locator('#linkList .link-row').count(),1);
+  await removal.fill('#links',Array.from({length:20},(_,i)=>'reel/CLIP'+i+'/').join('\n'));
+  const enteredScroll=await removal.locator('#links').evaluate(el=>{el.scrollTop=el.scrollHeight;return {top:el.scrollTop,overflow:getComputedStyle(el).overflowY};});
+  assert.ok(enteredScroll.top>0);assert.equal(enteredScroll.overflow,'auto');
+  const scroll=await removal.locator('#linkList').evaluate(el=>{el.scrollTop=el.scrollHeight;return {top:el.scrollTop,overflow:el.scrollHeight>el.clientHeight,bar:getComputedStyle(el,'::-webkit-scrollbar').display};});
+  assert.equal(scroll.overflow,true);assert.ok(scroll.top>0);assert.equal(scroll.bar,'none');
+  await removal.locator('#linkList .link-row button').last().tap();
+  assert.equal(await removal.locator('#linkList .link-row').count(),19);
+  assert.doesNotMatch(await removal.inputValue('#links'),/CLIP19/);
+  assert.ok(await removal.evaluate(()=>{window.scrollTo(0,document.body.scrollHeight);return window.scrollY;})>0);
+  await removalContext.close();
+
   assert.equal(await page.getAttribute('#modes [data-value=av]','aria-pressed'),'true');
   assert.equal(await page.getAttribute('#modes [data-value=frame]','aria-pressed'),'false');
   assert.equal(await page.locator('#frameSection').isVisible(),false);

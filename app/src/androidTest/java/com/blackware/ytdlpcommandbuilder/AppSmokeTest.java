@@ -121,6 +121,8 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             for (String suffix : new String[]{"",".new",".bak"}) new java.io.File(getInstrumentation().getTargetContext().getFilesDir(),name+suffix).delete();
         launch();
         assertTrue("Launcher icon must be packaged",getInstrumentation().getTargetContext().getApplicationInfo().icon!=0);
+        assertFalse("Vertical scroll indicator is hidden",web.isVerticalScrollBarEnabled());
+        assertFalse("Horizontal scroll indicator is hidden",web.isHorizontalScrollBarEnabled());
         try {
             await("document.readyState==='complete' && typeof window.handleBack==='function'");
             js("document.getElementById('links').value='https://instagram.com/stories/user.name/123?utm_source=ahttps://instagram.com/reel/abc/';document.getElementById('links').dispatchEvent(new Event('input'));document.querySelector('#engines [data-value=normal]').click();document.getElementById('addCut').click();document.getElementById('addCut').click();true");

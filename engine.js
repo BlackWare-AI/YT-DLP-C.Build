@@ -328,9 +328,18 @@
     return "bash -c '"+lines.join('\n').replace(/'/g,"'\\''")+"'";
   }
   function removeUrl(text, target) {
-    return String(text).replace(/(?:https?:\/\/|(?:www\.)?instagram\.com\/)(?:(?!https?:\/\/)[^\s<>"“”])+/gi, part=>{
-      try { return parseUrls(part).includes(target) ? '' : part; } catch(e) { return part; }
-    }).trim();
+    const isTarget = part => parseUrls(part,true).includes(target);
+    // Preserve the draft around each representation of the selected canonical URL.
+    let remaining=String(text).replace(/(?:https?:\/\/|(?:www\.)?instagram\.com\/)(?:(?!https?:\/\/)[^\s<>"“”])+/gi,
+      part=>isTarget(part) ? '' : part);
+    remaining=remaining.replace(/(^|[\s(])((?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)\/?(?=$|[\s),;.!?])(?:\?[^\s<>"“”]*)?)/gi,
+      (match,prefix,part)=>isTarget(part) ? prefix : match);
+    remaining=remaining.replace(/^([^\r\n]*)$/gm,line=>{
+      if(normalizeBareUsernames(line)===line || !isTarget(line)) return line;
+      const match=line.match(bareUsernameLine);
+      return match[1]+match[3];
+    });
+    return remaining.trim();
   }
   function build(input) {
     const s = {...defaults, ...input.settings};

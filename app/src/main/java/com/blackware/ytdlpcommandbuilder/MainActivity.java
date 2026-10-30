@@ -72,6 +72,8 @@ public final class MainActivity extends Activity {
         }
         web = new WebView(this);
         web.setBackgroundColor(Color.BLACK);
+        web.setVerticalScrollBarEnabled(false);
+        web.setHorizontalScrollBarEnabled(false);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
