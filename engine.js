@@ -65,6 +65,11 @@
       return match[1] + 'https://www.instagram.com/stories/' + match[2] + suffix;
     });
   }
+  function expandInstagramUrls(text) {
+    return String(text)
+      .replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2')
+      .replace(/(^|[\s(])((?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)\/?)(?=$|[\s),;.!?])/gi, '$1https://www.instagram.com/$2');
+  }
   function compactInstagramUrls(text) {
     return String(text).replace(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"'])+/gi, (token,offset,source) => {
       if(!/^https?:\/\/(?:www\.)?instagram\.com(?=\/|$)/i.test(token)) return token;
@@ -76,11 +81,11 @@
     });
   }
   function separateNoteLinks(text) {
-    const route=/(^|\s)((?:stories\/[a-z0-9._]+(?:\/\d+)?|(?:reel|p|tv)\/[a-z0-9_-]+)\/?)/gi;
+    const route=/(^|[\s(])((?:stories\/[a-z0-9._]+(?:\/\d+)?|(?:reel|p|tv)\/[a-z0-9_-]+)\/?)/gi;
     return String(text).replace(route,(match,space,link,offset,whole)=>{
       const lineStart=Math.max(whole.lastIndexOf('\n',offset-1),whole.lastIndexOf('\r',offset-1))+1;
       if(offset===0 || !whole.slice(lineStart,offset).trim()) return space+link;
-      return '\n'+link;
+      return '\n'+(space==='(' ? '(' : '')+link;
     });
   }
   function noteFormatTag(line) {
@@ -101,14 +106,12 @@
     return lines.join('\n');
   }
   function cleanNoteUrls(text) {
-    return groupTaggedNotes(separateNoteLinks(compactInstagramUrls(text)));
+    return groupTaggedNotes(separateNoteLinks(compactInstagramUrls(expandInstagramUrls(text))));
   }
   function cleanNotes(text) { return cleanNoteUrls(normalizeBareUsernames(text)); }
   // These helpers never read command history: a daily archive contains only notes.
   function noteLink(line) {
-    const match=String(line).match(/^\s*((?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)\/?)(?=\s|$)/i);
-    if(!match) return null;
-    const urls=parseUrls(match[1],true);
+    const urls=parseUrls(line,true);
     if(!urls.length) return null;
     return urls[0].replace(/(\/stories\/)([^/]+)/i,(_,prefix,user)=>prefix+user.toLowerCase());
   }
@@ -166,9 +169,7 @@
   }
   function parseUrls(text, skipInvalid) {
     const urls = [];
-    const source = normalizeBareUsernames(String(text))
-      .replace(/(^|[\s(])((?:www\.)?instagram\.com\/)/gi, '$1https://$2')
-      .replace(/(^|[\s(])((?:stories\/[\w.]+(?:\/\d+)?|(?:reel|p|tv)\/[\w-]+)\/?)(?=$|[\s),;.!?])/gi, '$1https://www.instagram.com/$2');
+    const source = expandInstagramUrls(normalizeBareUsernames(String(text)));
     // Stop at the next scheme, including when share links have no separator.
     const parts = source.match(/https?:\/\/(?:(?!https?:\/\/)[^\s<>"“”])+/gi) || [];
     for (let part of parts) {
@@ -231,12 +232,12 @@
     const lines=[
       "#!/usr/bin/env bash",
       "set -u",
-      'YTDLP=('+shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp')+')',
+      'YTDLP=('+(settings.engine==='normal' ? 'yt-dlp' : shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp'))+')',
       "COMMON=(--ignore-config --no-playlist)",
       cookies ? 'COOKIES=(--cookies '+cookies+')' : 'COOKIES=()',
       items ? 'SELECT=(--playlist-items '+quote(items)+')' : 'SELECT=()',
       'SLEEP=(--sleep-requests '+req+' --sleep-interval '+min+' --max-sleep-interval '+max+')',
-      'OUT='+shellPath('$HOME/storage/shared/Download/Apps/YT-DLP/Frame'),
+      'OUT='+shellPath(settings.folder.trim().replace(/\/+$/, '')+'/Frame'),
       'FILTER='+quote(filter),
       'URLS=('+urls.map(quote).join(' ')+')',
       "command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 || { printf '%s\\n' '"+message("FFmpeg bulunamadı. Termux: pkg install ffmpeg","FFmpeg not found. Termux: pkg install ffmpeg")+"' >&2; exit 127; }",
@@ -259,6 +260,21 @@
       "  SIZE=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 \"$1\" 2>/dev/null) || return 1",
       "  SIZE=${SIZE//$'\\n'/x}",
       "  [[ \"$SIZE\" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || return 1",
+      "  printf '%s\\n' \"$SIZE\"",
+      "}",
+      "source_dimensions() {",
+      "  local SIZE ORIENTATION ROTATION",
+      "  SIZE=$(video_dimensions \"$1\") || return 1",
+      "  ORIENTATION=$(ffprobe -v error -select_streams v:0 -show_entries stream_tags=rotate:stream_side_data=rotation -of default=noprint_wrappers=1 \"$1\" 2>/dev/null) || return 1",
+      "  case \"$ORIENTATION\" in",
+      "    *rotation=*) ROTATION=${ORIENTATION##*rotation=};;",
+      "    *TAG:rotate=*) ROTATION=${ORIENTATION##*TAG:rotate=};;",
+      "    *) ROTATION=0;;",
+      "  esac",
+      "  ROTATION=${ROTATION%%$'\\n'*}",
+      "  case \"$ROTATION\" in",
+      "    90|-90|270|-270|90.0*|-90.0*|270.0*|-270.0*) SIZE=\"${SIZE#*x}x${SIZE%x*}\";;",
+      "  esac",
       "  printf '%s\\n' \"$SIZE\"",
       "}",
       "valid_jpg() {",
@@ -288,7 +304,7 @@
       "    [[ -f \"$VIDEO\" ]] || continue",
       "    case \"$VIDEO\" in *.part|*.ytdl|*.jpg|*.json) continue;; esac",
       "    REASON='"+message("kaynak çözünürlüğü okunamadı","could not read source dimensions")+"'",
-      "    SOURCE_DIMENSIONS=$(video_dimensions \"$VIDEO\") || continue",
+      "    SOURCE_DIMENSIONS=$(source_dimensions \"$VIDEO\") || continue",
       "    [[ \"$SOURCE_DIMENSIONS\" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || continue",
       "    JPG=\"$ITEM_TMP/frame.jpg\"",
       "    REASON='"+message("JPG oluşturulamadı veya doğrulanamadı","could not create or verify JPG")+"'",

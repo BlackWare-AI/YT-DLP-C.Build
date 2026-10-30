@@ -40,6 +40,13 @@ const root=path.resolve(__dirname,'..');
    let merged=await log();assert.match(merged,/user.a\/1 V7 \(özel etiket\)/);assert.match(merged,/reel\/B S/);assert.match(merged,/reel\/New S/);
    assert.equal((merged.match(/stories\/user.a\/1/g)||[]).length,1);
    assert.equal(await page.evaluate(()=>state.notesDailyHistory.length),1);
+   await page.click('#notesBtn');
+   await page.fill('#notes','stories/user.a/1 V\nwww.instagram.com/stories/domain.user/42?utm_source=x S\nstories/query.user/43?igsh=x V1s');
+   await page.clock.runFor(800);
+   await page.fill('#notes','stories/user.a/1 V7');
+   await page.clock.runFor(800);await page.click('#notesClose');
+   merged=await log();assert.match(merged,/stories\/domain.user\/42 S/);assert.match(merged,/stories\/query.user\/43 V1s/);
+   assert.doesNotMatch(merged,/utm_source|igsh|www\.instagram/);
    const failure=await page.evaluate(()=>{
     window.restoreNotesStorage=Storage.prototype.setItem;
     Storage.prototype.setItem=function(){throw Error('notes archive save failure');};

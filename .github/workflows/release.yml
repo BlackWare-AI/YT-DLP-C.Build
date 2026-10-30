@@ -118,6 +118,8 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          bash .github/scripts/sync-release-tags.sh
           if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
             gh release upload "v${RELEASE_VERSION}" "YT-DLP-Command-Builder-v${RELEASE_VERSION}.apk" "YT-DLP-Command-Builder-v${RELEASE_VERSION}-EN.apk" --clobber
             gh release edit "v${RELEASE_VERSION}" --notes-file .github/release-notes.md

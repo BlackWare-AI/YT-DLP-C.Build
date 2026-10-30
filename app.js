@@ -457,6 +457,7 @@ window.handleBack=()=>{
   if($('confirmDialog').open) {$('confirmCancel').click();return true;}
   if($('notesDialog').open) {closeNotes();return true;}
   if(!$('historyPanel').hidden) {closeHistory();return true;}
+  if(!$('settingsPanel').hidden) {closeSettings();return true;}
   return false;
 };
 window.prepareExit=()=>flushNotesDailyLog() && save();
