@@ -47,11 +47,18 @@ const root=path.resolve(__dirname,'..');
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
     const bounds=await page.evaluate(()=>Array.from(document.querySelector('.app-footer-header').children).map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};}));
-    assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left,'footer controls do not overlap');
+    assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left && bounds[2].right<=bounds[3].left,'footer controls do not overlap');
     assert.ok(bounds[1].width<=160 && bounds[1].width>0);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   }
   await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('#settingsBtn','aria-expanded'),'true');
+  assert.equal(await page.locator('#folder').isVisible(),true);
+  assert.equal(await page.evaluate(()=>document.querySelector('#settingsPanel').getBoundingClientRect().top>=document.querySelector('.app-footer-header').getBoundingClientRect().bottom),true);
+  await page.click('#settingsBtn');
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
 
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
   assert.ok(cardSizes.modes.every(h=>Math.abs(h-cardSizes.engine)<1));
@@ -156,7 +163,7 @@ const root=path.resolve(__dirname,'..');
   await page.fill('#cuts .cut:nth-child(3) input:first-child','75');await page.fill('#cuts .cut:nth-child(3) input:nth-child(2)','90');
   await page.fill('#cuts .cut:first-child input:nth-child(2)','0');assert.equal(await page.locator('#copy').isDisabled(),true);
   await page.fill('#cuts .cut:first-child input:nth-child(2)','1');
-  await page.click('#engines [data-value=normal]');await page.locator('#settings > summary').click();
+  await page.click('#engines [data-value=normal]');await page.locator('#settingsBtn').click();
   await page.fill('#min','3');await page.fill('#max','2');assert.equal(await page.locator('#copy').isDisabled(),true);
   await page.fill('#max','8');await page.fill('#folder','$HOME/My Downloads');await page.fill('#cookies','/storage/emulated/0/My Cookies.txt');
   const command=await page.textContent('#output');
@@ -167,7 +174,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.getAttribute('#engines [data-value=normal]','aria-pressed'),'true');
   await page.fill('#links','https://instagram.com/stories/user.one/123 https://instagram.com/reel/abc');
   await page.click('#modes [data-value=audio]');assert.equal(await page.locator('#cutSection').isVisible(),false);
-  await page.locator('#settings > summary').click();
+  await page.locator('#settingsBtn').click();
   assert.match(await page.textContent('#output'),/--audio-format best[\s\S]*--embed-thumbnail/);
   await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');await page.fill('#links','https://instagram.com/reel/abc');await page.click('#modes [data-value=video]');assert.match(await page.textContent('#output'),/-f "bv"/);
   await page.click('#modes [data-value=still]');assert.match(await page.textContent('#output'),/\*0-1/);

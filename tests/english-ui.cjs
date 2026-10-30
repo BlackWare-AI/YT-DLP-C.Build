@@ -20,6 +20,14 @@ const root=path.resolve(__dirname,'..');
   await page.goto('http://127.0.0.1:'+server.address().port);
   assert.equal(await page.getAttribute('html','lang'),'en');
   assert.equal(await page.locator('#languageBtn').count(),0);
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('#settingsBtn','aria-expanded'),'true');
+  assert.equal(await page.locator('#folder').isVisible(),true);
+  assert.equal(await page.evaluate(()=>document.querySelector('#settingsPanel').getBoundingClientRect().top>=document.querySelector('.app-footer-header').getBoundingClientRect().bottom),true);
+  await page.click('#settingsBtn');
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+
   assert.equal(await page.textContent('#checkUpdate'),'Update');
   assert.equal(await page.locator('#checkUpdate').evaluate(el=>getComputedStyle(el).fontSize),'15px');
   assert.equal(await page.locator('#copy').innerText(),'Copy command');

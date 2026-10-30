@@ -558,6 +558,11 @@ function unlockHistoryScroll() {
   window.scrollTo(0,historyScrollY);
 }
 function closeHistory() { $('dialog').close(); unlockHistoryScroll(); }
+$('settingsBtn').onclick=()=>{
+  const expanded=$('settingsPanel').hidden;
+  $('settingsPanel').hidden=!expanded;
+  $('settingsBtn').setAttribute('aria-expanded',String(expanded));
+};
 $('historyBtn').onclick=()=>{
   showHistoryPanel('commands'); historyScrollY=window.scrollY;
   document.documentElement.style.setProperty('--history-scroll-top',-historyScrollY+'px');
@@ -575,7 +580,7 @@ $('clear').onclick=()=>{
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(t(e.message)); }
   });
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.4',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.5',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
