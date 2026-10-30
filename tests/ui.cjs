@@ -73,10 +73,9 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
-  await page.evaluate(()=>new Promise(resolve=>{
-    document.getElementById('dialog').addEventListener('close',resolve,{once:true});
-    document.getElementById('close').click();
-  }));
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+  await page.locator('#historyPanel').screenshot({path:path.join(root,'test-results/history-card-116-tr.png')});
+  await page.click('#close');
   await page.evaluate(()=>{state.history=window.originalHistory;delete window.originalHistory;showHistory();});
 
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
@@ -86,20 +85,18 @@ const root=path.resolve(__dirname,'..');
     return {content:s.content,width:s.width,height:s.height,color:s.backgroundColor};
   }));
   assert.deepEqual(markers,[{content:'""',width:'6px',height:'6px',color:'rgb(255, 255, 255)'},{content:'""',width:'4.5px',height:'4.5px',color:'rgb(255, 255, 255)'}]);
-  for(const close of ['button','escape','back']) {
-    await page.evaluate(()=>{window.scrollTo(0,450);document.getElementById('historyBtn').click();});
-    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),true);
-    const lockedTop=await page.locator('body').evaluate(el=>el.getBoundingClientRect().top);
-    await page.mouse.move(2,400);await page.mouse.wheel(0,500);
-    // Playwright's wheel dispatch returns before the browser finishes processing it.
-    await page.waitForTimeout(150);
-    assert.equal(await page.locator('body').evaluate(el=>el.getBoundingClientRect().top),lockedTop);
+  for(const close of ['button','toggle','back']) {
+    await page.click('#historyBtn');
+    assert.equal(await page.locator('#historyPanel').isVisible(),true);
+    assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'true');
+    assert.notEqual(await page.locator('body').evaluate(el=>getComputedStyle(el).position),'fixed');
+    assert.equal(await page.locator('dialog[open]').count(),0);
+    assert.equal(await page.evaluate(()=>document.getElementById('historyPanel').getBoundingClientRect().top>=document.querySelector('.app-footer-header').getBoundingClientRect().bottom),true);
     if(close==='button') await page.click('#close');
-    else if(close==='escape') await page.keyboard.press('Escape');
+    else if(close==='toggle') await page.click('#historyBtn');
     else await page.evaluate(()=>window.handleBack());
-    await page.waitForTimeout(100); // Finish the dialog close/focus cycle before reopening.
-    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),false);
-    assert.equal(await page.evaluate(()=>window.scrollY),450);
+    assert.equal(await page.locator('#historyPanel').isVisible(),false);
+    assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'false');
   }
 
   assert.equal(await page.evaluate(()=>document.querySelector('#modes [data-value=frame]').nextElementSibling.id),'copy');
@@ -219,9 +216,9 @@ const root=path.resolve(__dirname,'..');
   const exported=fs.readFileSync(await download.path(),'utf8');assert.ok(exported.includes(command));
   await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();
   assert.equal(await page.getAttribute('#modes [data-value=audio]','aria-pressed'),'true');
-  await page.click('#historyBtn');await page.click('#clear');assert.equal(await page.locator('#confirmDialog').isVisible(),true);await page.evaluate(()=>window.handleBack());await page.waitForFunction(()=>!document.getElementById('confirmDialog').open);assert.equal(await page.locator('#dialog').isVisible(),true);assert.equal(await page.locator('.history-item').count(),2);
+  await page.click('#historyBtn');await page.click('#clear');assert.equal(await page.locator('#confirmDialog').isVisible(),true);await page.evaluate(()=>window.handleBack());await page.waitForFunction(()=>!document.getElementById('confirmDialog').open);assert.equal(await page.locator('#historyPanel').isVisible(),true);assert.equal(await page.locator('.history-item').count(),2);
   await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Sil',exact:true}).first().click();await page.click('#confirmAccept');assert.equal(await page.locator('.history-item').count(),1);
-  await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#dialog').isVisible(),false);
+  await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#historyPanel').isVisible(),false);
   await page.click('#modes [data-value=video]');await page.click('#addCut');await page.click('#addCut');await page.click('#addCut');await page.locator('#cuts .cut button').last().click();assert.equal(await page.locator('#cuts .cut').count(),2);
   assert.equal(await page.locator('#itemSection').isVisible(),false);
   await page.fill('#links','https://instagram.com/stories/collection.user/ https://instagram.com/p/POST');

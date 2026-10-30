@@ -41,10 +41,9 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
-  await page.evaluate(()=>new Promise(resolve=>{
-    document.getElementById('dialog').addEventListener('close',resolve,{once:true});
-    document.getElementById('close').click();
-  }));
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+  await page.locator('#historyPanel').screenshot({path:path.join(root,'test-results/history-card-116-en.png')});
+  await page.click('#close');
   await page.evaluate(()=>{state.history=window.originalHistory;delete window.originalHistory;showHistory();});
 
   assert.equal(await page.textContent('#checkUpdate'),'Update');

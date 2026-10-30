@@ -327,26 +327,21 @@ $('copy').onclick=async()=>{
   } catch(e) { $('status').textContent=e.message; }
   finally {copying=false;preview();}
 };
-let historyScrollY=0;
-function unlockHistoryScroll() {
-  if(!document.documentElement.classList.contains('history-open')) return;
-  document.documentElement.classList.remove('history-open');
-  document.documentElement.style.removeProperty('--history-scroll-top');
-  window.scrollTo(0,historyScrollY);
+function closeHistory() {
+  $('historyPanel').hidden=true;
+  $('historyBtn').setAttribute('aria-expanded','false');
 }
-function closeHistory() { $('dialog').close(); unlockHistoryScroll(); }
 $('settingsBtn').onclick=()=>{
   const expanded=$('settingsPanel').hidden;
   $('settingsPanel').hidden=!expanded;
   $('settingsBtn').setAttribute('aria-expanded',String(expanded));
 };
 $('historyBtn').onclick=()=>{
-  showHistoryPanel('commands'); historyScrollY=window.scrollY;
-  document.documentElement.style.setProperty('--history-scroll-top',-historyScrollY+'px');
-  document.documentElement.classList.add('history-open'); $('dialog').showModal();
+  if(!$('historyPanel').hidden) {closeHistory();return;}
+  showHistoryPanel('commands');
+  $('historyPanel').hidden=false;
+  $('historyBtn').setAttribute('aria-expanded','true');
 };
-$('dialog').addEventListener('cancel',e=>{e.preventDefault();closeHistory();});
-$('dialog').addEventListener('close',unlockHistoryScroll);
 $('historyTab').onclick=()=>showHistoryPanel('commands');
 $('notesLogTab').onclick=()=>showHistoryPanel('notes');
 $('close').onclick=closeHistory;
@@ -448,7 +443,7 @@ $('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();}
 window.handleBack=()=>{
   if($('confirmDialog').open) {$('confirmCancel').click();return true;}
   if($('notesDialog').open) {closeNotes();return true;}
-  if($('dialog').open) {closeHistory();return true;}
+  if(!$('historyPanel').hidden) {closeHistory();return true;}
   return false;
 };
 window.prepareExit=()=>flushNotesDailyLog() && save();

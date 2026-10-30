@@ -31,7 +31,6 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 
 #historyBtn.history-button,#settingsBtn.settings-button{border-radius:12px;display:flex;align-items:center;justify-content:center;background:#0a0a0a;border:1px solid #303030}
 
-html.history-open,html.history-open body{overflow:hidden!important;overscroll-behavior:none}html.history-open body{position:fixed;top:var(--history-scroll-top);left:0;right:0;width:100%}#dialog,#history,#notesDailyHistory,#dialog pre{overscroll-behavior:contain}
 
 /* Visual-only single-row dividers; the textarea and clipboard contain no dashes. */
 .notes-separator-layer{position:absolute;inset:1px;overflow:hidden;border-radius:11px;pointer-events:none;user-select:none;-webkit-user-select:none}
@@ -59,3 +58,5 @@ html.history-open,html.history-open body{overflow:hidden!important;overscroll-be
 #notesBtn .notes-icon{flex-shrink:0}
 #paste,#notesPaste,#notesClear,.cut button,.link-row button,.plain-action,#confirmAccept.plain-action{border-color:transparent}
 #notes:placeholder-shown{border-style:dashed;outline:none}
+
+.history-panel #history{max-height:none;overflow:visible}.history-panel .bar{align-items:flex-start}.history-panel .history-heading{min-width:0}
