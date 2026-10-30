@@ -69,3 +69,6 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 
 /* Hide scroll indicators while preserving native scrolling and touch gestures. */
 *{scrollbar-width:none}*::-webkit-scrollbar{display:none}
+
+/* Empty examples fit without scrolling; entered links keep normal scrolling. */
+#links:placeholder-shown{padding-bottom:14px;overflow:hidden}#links:not(:placeholder-shown){overflow:auto}
