@@ -57,7 +57,7 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 #notesBtn{width:100%;min-height:49px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px}
 #notesBtn .notes-icon{flex-shrink:0}
 #paste,#notesPaste,#notesClear,.cut button,.link-row button,.plain-action,#confirmAccept.plain-action{border-color:transparent}
-#notes:placeholder-shown{border-style:dashed;outline:none}
+#notes.notes-empty{border-style:dashed;outline:none}
 
 .history-panel #history{max-height:none;overflow:visible}.history-panel .bar{align-items:flex-start}.history-panel .history-heading{min-width:0}
 

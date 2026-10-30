@@ -92,6 +92,7 @@ function renderCuts() {
   });
 }
 function renderNotesCount() {
+  $('notes').classList.toggle('notes-empty',!$('notes').value.trim());
   notesView.render();
   $('notesCount').textContent=Builder.countNoteLinks(state.notes)+' bağlantı';
 }
