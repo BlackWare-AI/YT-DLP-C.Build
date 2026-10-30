@@ -71,23 +71,23 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('#checkUpdate').isDisabled(),true);
   await page.evaluate(()=>window.setUpdateStatus('',false));
   assert.equal(await page.locator('#updateSection').count(),0);
-  assert.equal(await page.textContent('#checkUpdate'),'Güncelle');
+  assert.equal(await page.locator('#checkUpdate svg').count(),1);assert.equal(await page.textContent('#checkUpdate'),'');
   const updateStyle=()=>page.locator('#checkUpdate').evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,size:s.fontSize};});
-  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'15px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(187, 187, 187)',size:'22px'});
   await page.evaluate(()=>window.setUpdateStatus('Güncelleme mevcut: 1.1.3',false,true));
-  assert.deepEqual(await updateStyle(),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',size:'15px'});
-  assert.equal(await page.textContent('#checkUpdate'),'Güncelle');
+  assert.deepEqual(await updateStyle(),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',size:'22px'});
+  assert.equal(await page.locator('#checkUpdate svg').count(),1);assert.equal(await page.textContent('#checkUpdate'),'');
   await page.evaluate(()=>{window.Android={checkUpdates(){window.preCheckStatus=document.getElementById('updateStatus').textContent;window.setUpdateStatus('Güncelleme mevcut: 1.1.4',false,true);}};});
   await page.click('#checkUpdate');
   assert.equal(await page.evaluate(()=>window.preCheckStatus),'Güncelleme kontrol ediliyor…');
   await page.evaluate(()=>{delete window.Android;window.setUpdateStatus('Uygulama güncel.',false,false);});
-  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(221, 221, 221)',size:'15px'});
+  assert.deepEqual(await updateStyle(),{background:'rgb(10, 10, 10)',color:'rgb(187, 187, 187)',size:'22px'});
   assert.equal(await page.evaluate(()=>document.getElementById('checkUpdate').parentElement.className),'app-footer-header');
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
     const bounds=await page.evaluate(()=>Array.from(document.querySelector('.app-footer-header').children).map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};}));
     assert.ok(bounds[0].right<=bounds[1].left && bounds[1].right<=bounds[2].left && bounds[2].right<=bounds[3].left,'footer controls do not overlap');
-    assert.ok(bounds[1].width<=160 && bounds[1].width>0);
+    assert.deepEqual(bounds.slice(1).map(b=>b.width),[42,42,42]);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   }
   await page.setViewportSize({width:390,height:844});
@@ -141,7 +141,22 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('.history-item pre').count(),0);
   await page.locator('.history-item summary').first().click();await page.waitForSelector('.history-item button');
   const borders=await page.locator('.history-item').first().locator('button').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).borderTopColor));
-  assert.equal(borders[0],'rgb(51, 51, 51)');assert.equal(borders[3],'rgb(51, 51, 51)');
+  assert.deepEqual(borders,Array(3).fill('rgb(51, 51, 51)'));
+  const recordActions=page.locator('.history-item').first().locator('.history-item-actions > button');
+  assert.deepEqual(await recordActions.evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label'))),['Tekrar düzenle','Kopyala','Sil']);
+  assert.deepEqual(await recordActions.allTextContents(),['','','']);
+  assert.equal(await recordActions.locator('svg').count(),3);
+  assert.equal(await page.locator('.history-item').getByRole('button',{name:/TXT/}).count(),0);
+  assert.equal(await recordActions.nth(1).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#copy svg').evaluate(el=>el.innerHTML));
+  assert.equal(await recordActions.nth(2).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#notesClear svg').evaluate(el=>el.innerHTML));
+  for(const width of [320,390,650]) {
+    await page.setViewportSize({width,height:844});
+    const row=await recordActions.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height,left:r.left,right:r.right};}));
+    assert.ok(row.every(r=>r.width===42&&r.height===42&&Math.abs(r.top-row[0].top)<1));
+    assert.ok(row[0].right<row[1].left&&row[1].right<row[2].left);
+  }
+  for(const id of ['settingsPanel','historyPanel'])assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).borderTopColor),'rgba(0, 0, 0, 0)');
+
   assert.equal(await page.locator('#clear').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(51, 51, 51)');
   await page.locator('.history-item summary').first().click();
   for(const width of [320,390,650]) {
@@ -284,7 +299,7 @@ const root=path.resolve(__dirname,'..');
   const command=await page.textContent('#output');
   await page.click('#copy');await page.waitForFunction(()=>JSON.parse(localStorage.getItem('builder.state')).history.length===1);
   assert.equal((command.match(/--no-playlist/g)||[]).length,1);assert.equal((command.match(/--download-sections/g)||[]).length,3);assert.equal(await page.inputValue('#links'),'');assert.equal(await page.inputValue('#notes'),compactNote);assert.equal(await page.locator('#cuts .cut').count(),0);assert.equal(await page.locator('#copy').isDisabled(),true);assert.match(command,/-f "bv\+ba\/b"/);assert.doesNotMatch(command,/force-keyframes|--audio-format (mp3|m4a)/);assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);
-  await page.click('#historyBtn');assert.equal(await page.locator('.history-item pre').count(),0);await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();assert.equal(await page.locator('#cuts .cut').count(),3);await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),1);
+  await page.click('#historyBtn');assert.equal(await page.locator('.history-item pre').count(),0);await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.locator('.history-item').first().getByRole('button',{name:'Kopyala',exact:true}).click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();assert.equal(await page.locator('#cuts .cut').count(),3);await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).history.length),1);
   await page.reload();assert.equal(await page.inputValue('#links'),'');assert.equal(await page.locator('#cuts .cut').count(),0);assert.equal(await page.inputValue('#folder'),'$HOME/My Downloads');
   assert.equal(await page.getAttribute('#engines [data-value=normal]','aria-pressed'),'true');
   await page.fill('#links','https://instagram.com/stories/user.one/123 https://instagram.com/reel/abc');

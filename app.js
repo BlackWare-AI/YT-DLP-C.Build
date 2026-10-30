@@ -169,8 +169,20 @@ function allHistoryText() {
   }).join('\n\n');
   return ['İŞLEM GEÇMİŞİ',historyText(state.history),'NOT GÜNLÜĞÜ',notes,'LİNK NOTLARI',state.notes||''].join('\n\n');
 }
-function button(label, action) {
-  const b=document.createElement('button'); b.textContent=label;
+function button(label, icon, action) {
+  const b=document.createElement('button');
+  b.className='history-icon-button';b.setAttribute('aria-label',label);b.title=label;
+  let svg;
+  if(icon==='edit') {
+    svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');
+    svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.8');
+    svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','m14.5 5.5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z');
+    svg.append(path);
+  } else svg=$(icon==='copy'?'copy':'notesClear').querySelector('svg').cloneNode(true);
+  svg.setAttribute('aria-hidden','true');b.append(svg);
   b.onclick=async()=>{ try { await action(); } catch(e) { $('status').textContent=e.message; alert(e.message); } };
   return b;
 }
@@ -206,16 +218,17 @@ function showHistory() {
     item.addEventListener('toggle',()=>{
     if(!item.open || loaded)return;loaded=true;
     const pre=document.createElement('pre'); pre.textContent=historyText([h]); item.append(pre);
-    const actions=document.createElement('div'); actions.className='group';
-    actions.append(button('Kopyala',()=>{
-      if (!h.snapshot) throw Error('Bu eski kaydı güncel kurallarla oluşturmak için bağlantılarını yeniden girin.');
-      return copyText(Builder.build({...h.snapshot,settings:Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema)}).command);
-    }),button('TXT dışa aktar',()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
-      button('Tekrar düzenle',()=>{
+    const actions=document.createElement('div'); actions.className='group history-item-actions';
+    actions.append(button('Tekrar düzenle','edit',()=>{
         if (!h.snapshot) { alert('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.'); return; }
         state.settings=Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema); state.schema=2; state.links=h.snapshot.links;
         state.cuts=JSON.parse(JSON.stringify(h.snapshot.cuts)); state.selection={only:'',after:'',before:'',...h.snapshot.selection}; save(); hydrate(); closeHistory(); window.scrollTo(0,0);
-      }), button('Sil',async()=>{
+      }),
+      button('Kopyala','copy',()=>{
+      if (!h.snapshot) throw Error('Bu eski kaydı güncel kurallarla oluşturmak için bağlantılarını yeniden girin.');
+      return copyText(Builder.build({...h.snapshot,settings:Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema)}).command);
+    }),
+      button('Sil','delete',async()=>{
         if (!await askConfirm('Bu işlem geçmişi kaydı silinsin mi?',{title:'Kaydı sil'})) return;
         const old=state.history; state.history=old.filter((_,n)=>n!==i);
         try { persist(); } catch(e) { state.history=old; throw e; } showHistory();
