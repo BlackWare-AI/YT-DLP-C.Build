@@ -67,6 +67,8 @@ const root=path.resolve(__dirname,'..');
   });
   await page.click('#historyBtn');
   assert.equal(await page.locator('.history-day').count(),2);
+  assert.deepEqual(await page.locator('.history-actions > button').evaluateAll(nodes=>nodes.map(el=>el.id)),['exportSettings','export','clear']);
+  assert.equal(await page.locator('.history-actions > button').first().evaluate(el=>getComputedStyle(el).fontSize),'11px');
   assert.equal(await page.locator('.history-day[open]').count(),0);
   assert.equal(await page.locator('.history-day').first().locator('.history-item').count(),2);
   assert.equal(await page.locator('.history-item summary').first().isVisible(),false);
