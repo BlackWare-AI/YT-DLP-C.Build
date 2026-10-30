@@ -177,11 +177,17 @@ function askConfirm(message,{title='Silme işlemi',accept='Sil'}={}) {
   });
 }
 function showHistory() {
-  $('history').textContent=''; let day='';
+  $('history').textContent=''; const days=new Map();
   if (!state.history.length) $('history').textContent='Henüz kayıt yok.';
   state.history.forEach((h,i)=>{
     const d=new Date(h.date), key=d.toLocaleDateString('tr-TR');
-    if (key!==day) { const title=document.createElement('h3'); title.textContent=d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}); $('history').append(title); day=key; }
+    let day=days.get(key);
+    if(!day) {
+      day=document.createElement('details');day.className='history-day';
+      const title=document.createElement('summary');
+      title.textContent=d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+      day.append(title);days.set(key,day);$('history').append(day);
+    }
     const item=document.createElement('details'); item.className='history-item';
     const summary=document.createElement('summary');
     summary.textContent=d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' | '+(Array.isArray(h.urls) ? h.urls.length : h.count)+' bağlantı | '+
@@ -207,7 +213,7 @@ function showHistory() {
       }));
     item.append(actions);
     });
-    $('history').append(item);
+    day.append(item);
   });
 }
 function showNotesDailyHistory() {

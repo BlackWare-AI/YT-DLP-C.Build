@@ -45,3 +45,5 @@ html.history-open,html.history-open body{overflow:hidden!important;overscroll-be
 .app-footer-header .icon-button{min-height:42px}
 .settings-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;min-height:28px}
 @media(max-width:350px){.app-footer-header{gap:6px}}
+
+.history-day{background:#090909;border:1px solid #303030;border-radius:12px;padding:12px;margin:10px 0}.history-day>summary{font-size:12px;font-weight:600;color:#ccc;cursor:pointer}
