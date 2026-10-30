@@ -19,7 +19,7 @@ Add your links, select an engine and download mode, then copy the command into T
 7. **Yollar:** **Gelişmiş ayarlar** içindeki indirme klasörü ve cookies.txt yolunu kendi Termux kurulumuna göre düzenle. Cookies içeriği uygulamaya alınmaz. Boş cookies yolu komuta eklenmez.
 8. **Çalıştır:** **Kopyala** düğmesine bas, Termux'u aç, komutu yapıştır ve çalıştır. Başarılı kopyalama komutu geçmişe kaydeder; bağlantı, kesit ve sıra alanlarını temizler. İndirme sonuçları uygulamada takip edilmez.
 9. **Notlar ve geçmiş:** **Link Notları** kalıcı not alanıdır. Geçmiş düğmesinden kopyalanan komutları ve günlük **Not Günlüğü** kayıtlarını açabilir, Geçmişi aktar ile işlem geçmişini, günlük notlarını ve mevcut Link Notlarını tek TXT dosyasında; ayar aktarımıyla tam JSON yedeğini dışa aktarabilirsin. Her gün tek not kaydı tutulur; o gün yapılan değişiklikler aynı kaydı günceller.
-10. **Uygulamayı güncelle:** **Güncelle** GitHub sürümünü kontrol eder. Güncelleme varsa düğme beyaz olur ve güncelleme teklifi penceresi açılır. **İndir ve yükle** onayından sonra APK indirilip doğrulanır ve Android yükleme ekranı açılır. **Daha sonra** indirmeden kapatır. Son yüklemeyi Android ekranında onayla.
+10. **Uygulamayı güncelle:** **Güncelle simgesi** GitHub sürümünü kontrol eder. Güncelleme varsa düğme beyaz olur ve güncelleme teklifi penceresi açılır. **İndir ve yükle** onayından sonra APK indirilip doğrulanır ve Android yükleme ekranı açılır. **Daha sonra** indirmeden kapatır. Son yüklemeyi Android ekranında onayla.
 
 Yalnızca Kare modu ilk saniyeden bir JPG üretir ve geçici videoyu temizler. Seçilen motor ve cookies yolu kullanılır; JPG'ler ayarlardaki ana indirme klasörünün `Frame/` alt klasörüne gider. Süresi dolmuş veya erişilemeyen içerikler seçilen motor tarafından indirilemeyebilir.
 
@@ -60,7 +60,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 7. **Check paths:** Open **Advanced settings** and enter your Termux download folder and cookies.txt path. The app stores the path only. Leave cookies blank to omit the option.
 8. **Run the command:** Tap **Copy**, open Termux, paste and execute it. Successful copying saves a history record and clears link, segment and position fields. Download results are handled in Termux.
 9. **Keep notes and backups:** **Link Notes** stores your notes. Open History for copied commands and the daily **Notes Log**, or export TXT/full JSON backups. Each day has one note record; changes that day update it.
-10. **Update the app:** Tap **Update** to check GitHub. If an update is available, the button turns white and an update offer opens. Choose **Install update** to download and verify the APK, then confirm installation in Android. **Later** closes the offer without downloading.
+10. **Update the app:** Tap the **Update icon** to check GitHub. If an update is available, the button turns white and an update offer opens. Choose **Install update** to download and verify the APK, then confirm installation in Android. **Later** closes the offer without downloading.
 
 Frame Only keeps one verified JPG per link in the `Frame/` subfolder of your configured main download directory and removes temporary video. The selected engine may be unable to download expired or inaccessible content.
 

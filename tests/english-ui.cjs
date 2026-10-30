@@ -109,7 +109,22 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('.history-item pre').count(),0);
   await page.locator('.history-item summary').first().click();await page.waitForSelector('.history-item button');
   const borders=await page.locator('.history-item').first().locator('button').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).borderTopColor));
-  assert.equal(borders[0],'rgb(51, 51, 51)');assert.equal(borders[3],'rgb(51, 51, 51)');
+  assert.deepEqual(borders,Array(3).fill('rgb(51, 51, 51)'));
+  const recordActions=page.locator('.history-item').first().locator('.history-item-actions > button');
+  assert.deepEqual(await recordActions.evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label'))),['Edit again','Copy','Delete']);
+  assert.deepEqual(await recordActions.allTextContents(),['','','']);
+  assert.equal(await recordActions.locator('svg').count(),3);
+  assert.equal(await page.locator('.history-item').getByRole('button',{name:/TXT/}).count(),0);
+  assert.equal(await recordActions.nth(1).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#copy svg').evaluate(el=>el.innerHTML));
+  assert.equal(await recordActions.nth(2).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#notesClear svg').evaluate(el=>el.innerHTML));
+  for(const width of [320,390,650]) {
+    await page.setViewportSize({width,height:844});
+    const row=await recordActions.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height,left:r.left,right:r.right};}));
+    assert.ok(row.every(r=>r.width===42&&r.height===42&&Math.abs(r.top-row[0].top)<1));
+    assert.ok(row[0].right<row[1].left&&row[1].right<row[2].left);
+  }
+  for(const id of ['settingsPanel','historyPanel'])assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).borderTopColor),'rgba(0, 0, 0, 0)');
+
   assert.equal(await page.locator('#clear').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(51, 51, 51)');
   await page.locator('.history-item summary').first().click();
   for(const width of [320,390,650]) {
@@ -127,8 +142,8 @@ const root=path.resolve(__dirname,'..');
   await page.click('#historyBtn');
   await page.evaluate(()=>{state.history=window.originalHistory;delete window.originalHistory;showHistory();});
 
-  assert.equal(await page.textContent('#checkUpdate'),'Update');
-  assert.equal(await page.locator('#checkUpdate').evaluate(el=>getComputedStyle(el).fontSize),'15px');
+  assert.equal(await page.textContent('#checkUpdate'),'');assert.equal(await page.locator('#checkUpdate svg').count(),1);
+  assert.equal(await page.locator('#checkUpdate').evaluate(el=>getComputedStyle(el).color),'rgb(187, 187, 187)');
   assert.equal(await page.locator('#copy').innerText(),'Copy');
   assert.equal(await page.getAttribute('#copy','aria-pressed'),null);
   assert.equal(await page.evaluate(()=>document.querySelector('#modes [data-value=frame]').nextElementSibling.id),'copy');
@@ -162,7 +177,7 @@ const root=path.resolve(__dirname,'..');
   await page.click('#historyBtn');await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();
   await page.waitForSelector('.history-item button');
   assert.match(await page.locator('.history-item').innerText(),/Experimental/);
-  assert.match(await page.locator('.history-item').innerText(),/Edit again/);
+  assert.equal(await page.locator('.history-item').getByRole('button',{name:'Edit again',exact:true}).count(),1);
   await page.click('#notesLogTab');await page.locator('.daily-note-item summary').filter({hasText:'October 27, 2026'}).click();
   assert.match(await page.locator('.daily-note-item summary').filter({hasText:'October 27, 2026'}).innerText(),/October/);
   assert.equal(await page.locator('.daily-note-item pre').filter({hasText:'Değişmeyen günlük notu'}).innerText(),'Değişmeyen günlük notu');

@@ -1,17 +1,17 @@
 Türkçe
-- Günlük notlarda www/domain ve sorgu eki taşıyan kısa bağlantıların bağımsız kayıt olarak korunması düzeltildi. Mevcut günlük düzeni ve kayıtlar korunur.
-- Frame, seçilen normal/deneysel motoru, cookies yolunu ve ana indirme klasörünün Frame/ alt klasörünü kullanır.
-- Döndürme bilgili videoların JPG çözünürlük doğrulaması düzeltildi. En yakın kare seçimi, yüksek kalite ve geçici dosya temizliği korunur.
-- Android Geri düğmesi açık Gelişmiş ayarlar kartını kapatır.
-- Aynı sürüm APK yenilemelerinde kaynak kod etiketi doğrulanmış derleme ile eşleşir. 1.1.4 kaynak etiketi de son yayımlanan APK kaynağına düzeltilir.
-- Tasarım, diğer indirme modları, kayıt biçimi ve güncelleme onayı korunur. Ayrı TR ve EN APK’lar.
+- İşlem geçmişindeki her kaydın düğmeleri Düzenle, Kopyala ve Sil sırasıyla tek satır simge olarak düzenlendi. Mevcut işlevleri ve silme onayı korunur.
+- Yalnızca tek kayıt TXT aktarımı kaldırıldı. Toplu Geçmişi aktar ve tam ayar JSON yedeği korunur.
+- Link Notları ve işlem geçmişindeki silme simgeleri aynı yuvarlatılmış çizgi tasarımını kullanır.
+- Gelişmiş ayarlar ve Geçmiş kartlarının yalnızca dış kenarlıkları kaldırıldı.
+- Güncelle yazısı yerine diğer alt düğmelerle aynı boyutta bir güncelleme simgesi kullanılır. Normal durumda diğer simgelerle aynı soluk renktedir; güncelleme varsa beyaz zemin/siyah simge gösterir. Güncelleme teklifi ve indirme onayı korunur.
+- Komut üretimi, kayıtlar, günlük grupları ve önceki hata düzeltmeleri korunur. TR ve EN ayrı APK’lar.
 
 English
-- Daily notes now retain bare-domain and query-suffixed short links as independent entries. The existing daily layout and saved records are preserved.
-- Frame uses the selected normal/experimental engine, configured cookies and the Frame/ subfolder of the configured download directory.
-- Fixed JPG dimension validation for videos with rotation metadata. Closest-frame selection, high quality and temporary-file cleanup are preserved.
-- Android Back closes the open Advanced settings card.
-- Same-version APK refreshes keep the source tag aligned with the validated build. The 1.1.4 source tag is also aligned with its last published APK source.
-- Design, other download modes, saved-data format and update confirmation are preserved. Separate TR/EN APKs.
+- Each command history entry now has a single row of Edit again, Copy and Delete icons. Their existing actions and deletion confirmation are preserved.
+- Removed only the individual entry TXT export. Combined Export history and full settings JSON backup remain available.
+- Link Notes and history use the same rounded delete icon.
+- Removed only the outer borders of the Advanced settings and History cards.
+- Replaced the Update text with an icon matching the adjacent footer controls in size and muted color. Available updates still show a white button with a black icon; the update offer and download confirmation remain.
+- Command generation, saved data, daily groups and previous fixes are preserved. Separate TR/EN APKs.
 
 Android 10+ · 1.1.6 · version code 17 · existing release signing key.
