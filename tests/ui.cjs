@@ -75,6 +75,14 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
+  for(const width of [320,390,650]) {
+    await page.setViewportSize({width,height:844});
+    const controls=await page.locator('.history-actions > button').evaluateAll(nodes=>nodes.map(el=>{const r=el.getBoundingClientRect();return {top:r.top,left:r.left,right:r.right};}));
+    assert.ok(controls.every(r=>Math.abs(r.top-controls[0].top)<1));
+    assert.ok(controls[0].right<=controls[1].left&&controls[1].right<=controls[2].left);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }
+  await page.setViewportSize({width:390,height:844});
   fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
   await page.locator('#historyPanel').screenshot({path:path.join(root,'test-results/history-card-116-tr.png')});
   await page.click('#close');
