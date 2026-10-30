@@ -344,7 +344,6 @@ $('historyBtn').onclick=()=>{
 };
 $('historyTab').onclick=()=>showHistoryPanel('commands');
 $('notesLogTab').onclick=()=>showHistoryPanel('notes');
-$('close').onclick=closeHistory;
 $('clear').onclick=()=>{
   askConfirm('Tüm işlem geçmişi kalıcı olarak silinsin mi?',{title:'İşlem geçmişini temizle',accept:'Tümünü sil'}).then(confirmed=>{
   if (!confirmed) return;
