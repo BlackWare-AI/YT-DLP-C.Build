@@ -46,3 +46,16 @@ html.history-open,html.history-open body{overflow:hidden!important;overscroll-be
 @media(max-width:350px){.app-footer-header{gap:6px}}
 
 .history-day{background:#090909;border:1px solid #303030;border-radius:12px;padding:12px;margin:10px 0}.history-day>summary{font-size:12px;font-weight:600;color:#ccc;cursor:pointer}
+
+/* Pure black card and field surfaces; selection remains visible in borders/dots. */
+:is(main>section,.history-day,.history-item,.daily-note-item){background:#000}
+:is(main section,#notesDialog) :is(button,input,textarea,select),.history-item button,#clear,#confirmAccept{background:#000}
+#links::placeholder{color:#606060}
+#copy.copy-mode{margin:0;width:100%;background:#000;color:#eee;border-color:transparent}
+#copy .mode-symbol{border-color:transparent}
+#copy .copy-icon{width:24px;height:24px;flex-shrink:0}
+.copy-action{margin:14px 0 0}
+#notesBtn{width:100%;min-height:49px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px}
+#notesBtn .notes-icon{flex-shrink:0}
+#paste,#notesPaste,#notesClear,.cut button,.link-row button,.plain-action,#confirmAccept.plain-action{border-color:transparent}
+#notes:placeholder-shown{border-style:dashed;outline:none}

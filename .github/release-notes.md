@@ -1,13 +1,15 @@
 Türkçe
-- Motor/biçim, çoklu bağlantı, video kesitleri, komut, kare zamanı ve story/post sırası kartlarının yalnızca dış çizgileri kaldırıldı; kart aralıkları biraz azaltıldı. Link Notları ve Komutu kopyala düğmeleri korundu.
-- Güncelle düğmesi daraltıldı; yazı 15 px olarak korundu. Yanındaki yeni gelişmiş ayarlar simgesi mevcut ayarlar kartını alt sırada açar.
-- İşlem geçmişi artık kapalı gün başlıkları altında gruplanır. Güne basınca o günün işlemleri açılır; kayıt ayrıntıları ve işlemleri korunur.
-- Diğer işlevler korunmuştur. TR ve EN APK’ları ayrı sunulur.
+- Kartlar ve kart içindeki alan/düğme zeminleri tam AMOLED siyah yapıldı.
+- Kopyala, Yalnızca Kare’nin yanına mod kutusuyla aynı boyutta taşındı; simgesi büyütüldü. Mod açıklamasının altında tam genişlikte Link Notları düğmesi ve yeni simgesi yer alıyor.
+- Bağlantı örnekleri kısa stories/kullanıcı/123/ ve reel/ABC/ biçimine getirildi; örnek yazıları biraz soluklaştırıldı.
+- Boş Link Notları alanı kesikli kenarlık kullanıyor. Yapıştır/sil/kopyala düğmelerinin kenarlıkları kaldırıldı; yapıştır simgeleri yuvarlatıldı.
+- Komut üretimi, kayıtlar ve ayarların işleyişi korunmuştur. TR ve EN ayrı APK’lar.
 
 English
-- Removed only the outer borders of the engine/format, links, segments, command, frame time and story/post order cards, with slightly reduced spacing. Link Notes and Copy command buttons are unchanged.
-- Narrowed Update while retaining its 15 px text. The adjacent advanced settings icon opens the existing settings card beneath the footer controls.
-- Command history is grouped under collapsed daily headings. Expand a day to access its records and existing actions.
-- Other functionality is preserved. Separate TR and EN APKs.
+- Cards, their fields and buttons now use pure AMOLED black surfaces.
+- Copy sits beside Frame Only at the same size, with a larger icon. A full-width Link Notes button and new icon sit below the mode description.
+- Link examples use short stories/username/123/ and reel/ABC/ paths with slightly dimmer placeholder text.
+- Empty Link Notes uses a dashed border. Paste/delete/copy button borders are removed and clipboard icons are rounder.
+- Command generation, stored records and settings behavior are preserved. Separate TR and EN APKs.
 
-Android 10+ · 1.1.5 · version code 16 · existing release signing key.
+Android 10+ · 1.1.6 · version code 17 · existing release signing key.

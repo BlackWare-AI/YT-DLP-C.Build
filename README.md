@@ -17,7 +17,7 @@ Add your links, select an engine and download mode, then copy the command into T
 5. **Bağlantılar:** Bir veya daha fazla Instagram Story, Reels veya gönderi bağlantısını alana yapıştır. Pano düğmesi mevcut listeye ekler; yinelenen bağlantılar atlanır. Tek bağlantı eklemek için alttaki alanı ve **+ Ekle** düğmesini kullan.
 6. **İsteğe bağlı seçim:** Hesap listesi veya çoklu gönderi için sıra alanlarını kullan; 1 ilk öğedir. Kesit istiyorsan başlangıç/bitiş saniyelerini gir. Kare modunda varsayılan **0,5 saniye** veya ilk saniye içindeki özel zamanı seç.
 7. **Yollar:** **Gelişmiş ayarlar** içindeki indirme klasörü ve cookies.txt yolunu kendi Termux kurulumuna göre düzenle. Cookies içeriği uygulamaya alınmaz. Boş cookies yolu komuta eklenmez.
-8. **Çalıştır:** **Komutu kopyala** düğmesine bas, Termux'u aç, komutu yapıştır ve çalıştır. Başarılı kopyalama komutu geçmişe kaydeder; bağlantı, kesit ve sıra alanlarını temizler. İndirme sonuçları uygulamada takip edilmez.
+8. **Çalıştır:** **Kopyala** düğmesine bas, Termux'u aç, komutu yapıştır ve çalıştır. Başarılı kopyalama komutu geçmişe kaydeder; bağlantı, kesit ve sıra alanlarını temizler. İndirme sonuçları uygulamada takip edilmez.
 9. **Notlar ve geçmiş:** **Link Notları** kalıcı not alanıdır. Geçmiş düğmesinden kopyalanan komutları ve günlük **Not Günlüğü** kayıtlarını açabilir, TXT veya tam JSON yedeği dışa aktarabilirsin. Her gün tek not kaydı tutulur; o gün yapılan değişiklikler aynı kaydı günceller.
 10. **Uygulamayı güncelle:** **Güncelle** GitHub sürümünü kontrol eder. Güncelleme varsa düğme beyaz olur ve güncelleme teklifi penceresi açılır. **İndir ve yükle** onayından sonra APK indirilip doğrulanır ve Android yükleme ekranı açılır. **Daha sonra** indirmeden kapatır. Son yüklemeyi Android ekranında onayla.
 
@@ -25,7 +25,7 @@ Yalnızca Kare modu ilk saniyeden bir JPG üretir ve geçici videoyu temizler. J
 
 ## APK editions
 
-Both editions are published under **v1.1.5** in this repository: `YT-DLP-Command-Builder-v1.1.5.apk` (TR) and `YT-DLP-Command-Builder-v1.1.5-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
+Both editions are published under **v1.1.6** in this repository: `YT-DLP-Command-Builder-v1.1.6.apk` (TR) and `YT-DLP-Command-Builder-v1.1.6-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
 
 ## Our goal
 
@@ -57,7 +57,7 @@ Make yt-dlp easier to use on Android while keeping users in control. The app foc
 5. **Add Instagram links:** Paste one or more Story, Reels or post links. The clipboard button appends supported links and skips duplicates. Use the smaller field and **+ Add** for another link.
 6. **Adjust optional selections:** Use item positions for account lists or post carousels (1 means the first item). Add video start/end segments if needed. Frame Only offers **0.5 seconds** or a custom time within the first second.
 7. **Check paths:** Open **Advanced settings** and enter your Termux download folder and cookies.txt path. The app stores the path only. Leave cookies blank to omit the option.
-8. **Run the command:** Tap **Copy command**, open Termux, paste and execute it. Successful copying saves a history record and clears link, segment and position fields. Download results are handled in Termux.
+8. **Run the command:** Tap **Copy**, open Termux, paste and execute it. Successful copying saves a history record and clears link, segment and position fields. Download results are handled in Termux.
 9. **Keep notes and backups:** **Link Notes** stores your notes. Open History for copied commands and the daily **Notes Log**, or export TXT/full JSON backups. Each day has one note record; changes that day update it.
 10. **Update the app:** Tap **Update** to check GitHub. If an update is available, the button turns white and an update offer opens. Choose **Install update** to download and verify the APK, then confirm installation in Android. **Later** closes the offer without downloading.
 
@@ -107,7 +107,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.1.5`
+- Current documented version: `1.1.6`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -121,7 +121,7 @@ Press Back twice within two seconds on the main screen to exit. Back first dismi
 
 All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.5-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.6-debug`.
 
 Validation commands:
 

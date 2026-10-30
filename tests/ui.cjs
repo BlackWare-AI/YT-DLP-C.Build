@@ -102,11 +102,28 @@ const root=path.resolve(__dirname,'..');
     assert.equal(await page.evaluate(()=>window.scrollY),450);
   }
 
-  assert.equal(await page.evaluate(()=>document.querySelector('.setup').nextElementSibling.contains(document.getElementById('copy'))),true);
-  assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
+  assert.equal(await page.evaluate(()=>document.querySelector('#modes [data-value=frame]').nextElementSibling.id),'copy');
+  assert.equal(await page.evaluate(()=>document.getElementById('modeHint').nextElementSibling.className),'copy-action');
+  assert.equal(await page.locator('#copy').innerText(),'Kopyala');
+  assert.equal(await page.getAttribute('#copy','aria-pressed'),null);
+  const placeholder=await page.getAttribute('#links','placeholder');
+  assert.match(placeholder,/stories\/kullanıcı\/123\//);assert.match(placeholder,/reel\/ABC\//);assert.doesNotMatch(placeholder,/https?:/);
+  assert.equal(await page.locator('#links').evaluate(el=>getComputedStyle(el,'::placeholder').color),'rgb(96, 96, 96)');
+  const surfaces=await page.evaluate(()=>Array.from(document.querySelectorAll('main section,main section button,main section input,main section textarea')).map(el=>getComputedStyle(el).backgroundColor));
+  assert.ok(surfaces.every(color=>color==='rgb(0, 0, 0)'));
+  for(const selector of ['#copy','#copy .mode-symbol','#paste']) assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).borderTopColor),'rgba(0, 0, 0, 0)');
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+  await page.screenshot({path:path.join(root,'test-results/amoled-116.png'),fullPage:true});
   await page.click('#notesBtn');
   await page.locator('#notes').click(); // Wait for the slide-in animation to settle.
+  assert.equal(await page.locator('#notes').evaluate(el=>getComputedStyle(el).borderTopStyle),'dashed');
+  for(const selector of ['#notesClear','#notesPaste']) {
+    const style=await page.locator(selector).evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,border:s.borderTopColor};});
+    assert.deepEqual(style,{background:'rgb(0, 0, 0)',border:'rgba(0, 0, 0, 0)'});
+  }
+  await page.screenshot({path:path.join(root,'test-results/notes-empty-116.png')});
   await page.fill('#notes','Önceki not V4S');
+  assert.equal(await page.locator('#notes').evaluate(el=>getComputedStyle(el).borderTopStyle),'solid');
   const point=await page.locator('#notes').evaluate(el=>{
     const r=el.getBoundingClientRect(),s=getComputedStyle(el),line=parseFloat(s.lineHeight);
     return {x:r.x+20,y:r.y+parseFloat(s.borderTopWidth)+parseFloat(s.paddingTop)+4.5*line};
@@ -236,7 +253,7 @@ const root=path.resolve(__dirname,'..');
   await page.click('#historyBtn');await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();assert.equal(await page.inputValue('#itemAfter'),'3');assert.match(await page.textContent('#output'),/--playlist-items "4:6"/);assert.equal(await page.textContent('#output'),selectedCommand);
   await page.click('#modes [data-value=video]');
   console.log('PASS: optional item indices/ranges in all modes; copy resets cuts and selection; full JSON backup preserves every saved field');
-  for(const width of [320,390,760]){await page.setViewportSize({width,height:844});const widths=await page.evaluate(()=>['copy','notesBtn'].map(id=>document.getElementById(id).getBoundingClientRect().width));assert.ok(Math.abs(widths[0]-widths[1])<1);const heights=await page.evaluate(()=>[document.querySelector('#engines button').getBoundingClientRect().height,...Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)]);assert.ok(heights.every(h=>Math.abs(h-heights[0])<1));const iconFits=await page.evaluate(()=>Array.from(document.querySelectorAll('.mode-symbol')).every(el=>el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1));assert.equal(iconFits,true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);}
+  for(const width of [320,390,760]){await page.setViewportSize({width,height:844});const aligned=await page.evaluate(()=>{const frame=document.querySelector('#modes [data-value=frame]').getBoundingClientRect(),copy=document.getElementById('copy').getBoundingClientRect(),notes=document.getElementById('notesBtn').getBoundingClientRect();return Math.abs(frame.width-copy.width)<1&&Math.abs(frame.top-copy.top)<1&&Math.abs(frame.left-notes.left)<1&&Math.abs(copy.right-notes.right)<1;});assert.equal(aligned,true);const heights=await page.evaluate(()=>[document.querySelector('#engines button').getBoundingClientRect().height,...Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)]);assert.ok(heights.every(h=>Math.abs(h-heights[0])<1));const iconFits=await page.evaluate(()=>Array.from(document.querySelectorAll('.mode-symbol')).every(el=>el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1));assert.equal(iconFits,true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);}
   fs.mkdirSync(path.join(root,'test-results'),{recursive:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(root,'test-results/phone.png'),fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS: UI modes, cuts, validation, persistence, clipboard, deduplication, history edit/delete/export and 320–760 px layouts');

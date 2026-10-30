@@ -49,7 +49,10 @@ const root=path.resolve(__dirname,'..');
 
   assert.equal(await page.textContent('#checkUpdate'),'Update');
   assert.equal(await page.locator('#checkUpdate').evaluate(el=>getComputedStyle(el).fontSize),'15px');
-  assert.equal(await page.locator('#copy').innerText(),'Copy command');
+  assert.equal(await page.locator('#copy').innerText(),'Copy');
+  assert.equal(await page.getAttribute('#copy','aria-pressed'),null);
+  assert.equal(await page.evaluate(()=>document.querySelector('#modes [data-value=frame]').nextElementSibling.id),'copy');
+  const placeholder=await page.getAttribute('#links','placeholder');assert.match(placeholder,/stories\/username\/123\//);assert.doesNotMatch(placeholder,/https?:/);
   assert.match(await page.textContent('#error'),/Enter at least one Instagram/);
   assert.doesNotMatch(await page.locator('body').innerText(),/[çğıöşüÇĞİÖŞÜ]/);
   assert.doesNotMatch(await page.locator('[placeholder]').evaluateAll(nodes=>nodes.map(n=>n.placeholder).join('\n')),/[çğıöşüÇĞİÖŞÜ]/);
