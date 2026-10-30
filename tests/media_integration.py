@@ -180,7 +180,7 @@ def main():
             frame_prefix=frame_home/'termux';frame_prefix.mkdir()
             pythonpath=os.pathsep.join(filter(None,[os.environ.get('PYTHONPATH',''),site.getusersitepackages()]))
             result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'PREFIX':str(frame_prefix),'PYTHONPATH':pythonpath,'FIXTURE_FRAME':'1','TMPDIR':str(frame_home/'missing'/'tmp')},text=True)
-            frame_output=frame_home/'storage/shared/Download/Apps/YT-DLP/Frame'
+            frame_output=output/'Frame'
             frame_files=list(frame_output.glob('*.jpg'))
             assert len(frame_files)==1,result.stdout
             frame_meta=probe(frame_files[0]);assert frame_meta['streams'][0]['codec_name']=='mjpeg'
@@ -190,6 +190,12 @@ def main():
             assert not (frame_home/'missing').exists()
             assert frame_meta['streams'][0]['pix_fmt']=='yuvj444p'
             print('PASS: Frame yt-dlp cookie download, one JPG at source resolution, and temporary video cleanup')
+            frame_data['settings']['engine']='normal'
+            frame_cmd=run(['node','-e',frame_script,json.dumps(frame_data)],cwd=ROOT,text=True).stdout
+            result=run(['bash','-c',frame_cmd],env={**env,'HOME':str(frame_home),'PREFIX':str(frame_prefix),'PYTHONPATH':pythonpath,'FIXTURE_FRAME':'1','TMPDIR':str(frame_home/'missing'/'tmp')},text=True)
+            assert len(list(frame_output.glob('*.jpg')))==2,result.stdout
+            assert not list(frame_prefix.glob('tmp/ytdlp-frame.*'))
+            print('PASS: Frame uses selected normal/experimental executable, cookies and configured output folder')
 
         except subprocess.CalledProcessError as e:
             print(e.stdout); raise

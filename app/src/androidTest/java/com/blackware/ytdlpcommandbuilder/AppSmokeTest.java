@@ -38,6 +38,16 @@ public final class AppSmokeTest extends InstrumentationTestCase {
         while (SystemClock.uptimeMillis()<deadline);
         fail("Condition not met: "+expression+"; UI state: "+js("JSON.stringify({ready:document.readyState,count:document.getElementById('count')&&document.getElementById('count').textContent,cuts:document.querySelectorAll('#cuts .cut').length,error:document.getElementById('error')&&document.getElementById('error').textContent})"));
     }
+    private void awaitClipboardWindowFocus() {
+        long deadline=SystemClock.uptimeMillis()+10000;
+        AtomicReference<Boolean> focused=new AtomicReference<>(false);
+        do {
+            getInstrumentation().runOnMainSync(() -> focused.set(activity.hasWindowFocus()));
+            if(focused.get()) return;
+            SystemClock.sleep(50);
+        } while(SystemClock.uptimeMillis()<deadline);
+        fail("Clipboard test requires the relaunched activity to own window focus");
+    }
     private void launch() {
         Intent intent=new Intent(getInstrumentation().getTargetContext(),MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -130,6 +140,8 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             getInstrumentation().runOnMainSync(() -> activity.finish());
             getInstrumentation().waitForIdleSync(); launch();
             await("document.readyState==='complete' && document.getElementById('count').textContent==='2 bağlantı'");
+            // Android clipboard reads require foreground window focus, not just page readiness.
+            awaitClipboardWindowFocus();
             // The paste button reads the actual Android clipboard on user action.
             getInstrumentation().runOnMainSync(() -> {
                 ClipboardManager cm=(ClipboardManager)activity.getSystemService(Activity.CLIPBOARD_SERVICE);

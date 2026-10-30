@@ -106,7 +106,9 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('#historyPanel').isVisible(),false);
   assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'false');
   assert.equal(await page.locator('#settingsPanel').isVisible(),true);
-  await page.click('#settingsBtn');
+  assert.equal(await page.evaluate(()=>window.handleBack()),true);
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  assert.equal(await page.getAttribute('#settingsBtn','aria-expanded'),'false');
   const exportedFixture=await page.evaluate(()=>{
     const oldHistory=state.history,oldDaily=state.notesDailyHistory,oldNotes=state.notes;
     try {

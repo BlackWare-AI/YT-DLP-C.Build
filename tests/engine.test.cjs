@@ -59,9 +59,10 @@ function frameFixture(t) {
  }
  sources.vfr=path.join(root,'vfr.mkv');execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','testsrc2=size=96x64:rate=10:duration=1','-vf',"select='eq(n,0)+eq(n,2)+eq(n,4)+eq(n,9)'",'-fps_mode','vfr','-c:v','ffv1',sources.vfr]);
  fs.writeFileSync(path.join(bin,'yt-dlp'),`#!/usr/bin/env bash\nset -u\nURL= OUT=\nwhile (($#)); do case "$1" in -P) OUT=$2; shift 2;; --download-sections) [[ "$2" == "*0-1" ]] || exit 9; shift 2;; -f) [[ "$2" == bv ]] || exit 8; shift 2;; --) shift; URL=$1; shift;; *) shift;; esac; done\nprintf '%s\\n' "$URL" >> "$FRAME_LOG"\n[[ "$URL" == *bad* ]] && exit 1\n[[ "$URL" == *empty* ]] && exit 0\nSOURCE="$FRAME_ROOT/$FRAME_KIND.mkv"\n[[ "$URL" != *short* ]] || SOURCE="$FRAME_ROOT/short.mkv"\ncp -- "$SOURCE" "$OUT/account-20261029-1530-01.mkv"\nif [[ "$URL" == *multi* ]]; then cp -- "$SOURCE" "$OUT/account-20261029-1530-02.mkv"; fi\n`,{mode:0o755});
+ fs.copyFileSync(path.join(bin,'yt-dlp'),path.join(tools,'yt-dlp'));
  const real=execFileSync('which',['ffmpeg'],{encoding:'utf8'}).trim();
  fs.writeFileSync(path.join(tools,'ffmpeg'),`#!/usr/bin/env bash\nif [[ " $* " == *" -q:v 1 "* ]]; then\n if [[ "\${FRAME_BEHAVIOR:-}" == signal ]]; then kill -TERM "$PPID"; exit 1; fi\n if [[ "\${FRAME_BEHAVIOR:-}" == broken ]]; then printf broken > "\${@: -1}"; exit 0; fi\n if [[ "\${FRAME_BEHAVIOR:-}" == fallback && " $* " == *" -vf "* ]]; then exit 0; fi\n printf '%s\\n' encode >> "$FRAME_ENCODINGS"\nfi\nexec ${B.quote(real)} "$@"\n`,{mode:0o755});
- const output=path.join(home,'storage/shared/Download/Apps/YT-DLP/Frame');
+ const output=path.join(home,'storage/shared/Download/Apps/YT-DLPTemp/Frame');
  const env={...process.env,HOME:home,PREFIX:prefix,TMPDIR:path.join(root,'missing','tmp'),PATH:tools+path.delimiter+process.env.PATH,FRAME_ROOT:root,FRAME_KIND:'fps30',FRAME_LOG:path.join(root,'urls.log'),FRAME_ENCODINGS:path.join(root,'encodings.log')};
  function build(links='https://instagram.com/stories/account/123',settings={}) {return B.build({links,settings:{mode:'frame',cookies:'$HOME/cookies with $ literal.txt',requests:'0',min:'0',max:'0',...settings}}).command;}
  function run(links,settings={},extra={}) {const command=build(links,settings);execFileSync('bash',['-n'],{input:command});const result=spawnSync('bash',['-c',command],{env:{...env,...extra},encoding:'utf8',timeout:20000});assert.doesNotMatch((result.stdout||'')+(result.stderr||''),/Overwrite|Press Enter|\[y\/N\]|\[Y\/n\]/i);return result;}
@@ -346,4 +347,40 @@ test('visual group gaps are single rows, stable, and contain no separator charac
  assert.deepEqual(B.parseUrls(spaced),B.parseUrls(text));
  assert.doesNotMatch(B.mergeDailyNotes('',spaced),/- -/);
  assert.equal(B.spaceNoteGroups('Özel not\n\nreel/B V\n\n\n'), 'Özel not\n\nreel/B V\n\n\n');
+});
+
+
+test('daily archive retains every accepted URL form after notes are removed or retagged',()=>{
+ const variants=['www.instagram.com/stories/b/2?utm_source=x','instagram.com/stories/b/2?psln=x','stories/b/2?utm_source=x','https://instagram.com/stories/b/2/?igsh=x','(stories/b/2/)','(www.instagram.com/stories/b/2)'];
+ for(const url of variants) {
+  const previous='stories/a/1 V\n'+url+' S';
+  const cleaned=B.cleanNotes(previous);assert.doesNotMatch(cleaned,/utm_source|psln|igsh|www\.instagram/);
+  const merged=B.mergeDailyNotes(previous,'stories/a/1 V1s');
+  assert.deepEqual(new Set(B.parseUrls(merged)),new Set(B.parseUrls('stories/a/1\nstories/b/2')),url);
+  assert.match(merged,/V1s/);assert.match(merged,/ S/);assert.equal(B.mergeDailyNotes(merged,merged),merged);
+ }
+ const multi='(stories/a/1) V (stories/b/2) S';
+ assert.equal(B.parseUrls(B.mergeDailyNotes(multi,'stories/a/1 V1s')).length,2);
+});
+test('Frame honors selected engine and quoted output folder without changing cookies or media options',()=>{
+ const folder='/tmp/Çığ "quoted" $literal';
+ for(const engine of ['normal','experimental']) {
+  const command=B.build({links:story(1),settings:{...B.defaults,engine,mode:'frame',folder,cookies:'/tmp/cookies file.txt'}}).command;
+  assert.ok(command.includes('YTDLP=('+(engine==='normal'?'yt-dlp':B.shellPath('$HOME/yt-dlp-story-test/bin/yt-dlp'))+')'));
+  assert.ok(command.includes('OUT='+B.shellPath(folder+'/Frame')));assert.ok(command.includes('COOKIES=(--cookies '+B.shellPath('/tmp/cookies file.txt')+')'));
+  assert.match(command,/-f "bv" --download-sections "\*0-1"/);assert.doesNotMatch(command,/force-keyframes/);execFileSync('bash',['-n'],{input:command});
+ }
+});
+test('Frame rotation metadata preserves displayed dimensions, quality and single encoding',{skip:!ffmpegAvailable},t=>{
+ const f=frameFixture(t),base=path.join(f.root,'rotation-base.mp4');
+ execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','testsrc2=size=96x64:rate=30:duration=1','-c:v','libx264',base]);
+ for(const [index,angle] of [90,180,270,-90].entries()) {
+  const kind='rotation'+index,source=path.join(f.root,kind+'.mkv');
+  execFileSync('ffmpeg',['-nostdin','-v','error','-display_rotation',String(angle),'-i',base,'-c','copy','-f','mp4',source]);
+  const result=f.run(undefined,{engine:index%2?'normal':'experimental'},{FRAME_KIND:kind});assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/Başarılı JPG: 1/);
+  const jpg=path.join(f.output,'account-20261029-1530-'+String(index+1).padStart(2,'0')+'.jpg');
+  const meta=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-of','json',jpg],{encoding:'utf8'})).streams[0];
+  assert.deepEqual([meta.width,meta.height],angle===180?[96,64]:[64,96]);assert.equal(meta.pix_fmt,'yuvj444p');assert.deepEqual(fs.readFileSync(jpg),f.expected(source,.5));f.clean();
+ }
+ assert.equal(fs.readFileSync(f.env.FRAME_ENCODINGS,'utf8').trim().split('\n').length,4);
 });
