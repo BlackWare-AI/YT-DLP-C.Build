@@ -288,7 +288,7 @@ function persist() {
 function save() {try {persist();return true;} catch(e) {$('status').textContent=t(e.message);return false;}}
 function renderButtons() {
   for (const [id,key] of [['engines','engine'],['modes','mode']]) {
-    for (const b of $(id).querySelectorAll('button')) {
+    for (const b of $(id).querySelectorAll('button[data-value]')) {
       const active = b.dataset.value === state.settings[key];
       b.classList.toggle('active',active); b.setAttribute('aria-pressed',String(active));
     }
@@ -322,6 +322,7 @@ function renderCuts() {
   });
 }
 function renderNotesCount() {
+  $('notes').classList.toggle('notes-empty',!$('notes').value.trim());
   notesView.render();
   $('notesCount').textContent=linkCount(Builder.countNoteLinks(state.notes));
 }
@@ -390,8 +391,9 @@ function historyText(records) {
     t('\nYalnızca komut oluşturuldu ve kopyalandı.\n')+(h.urls || []).join('\n')+'\n'+
     (h.snapshot ? JSON.stringify(h.snapshot.settings,null,2)+t('\nÖğe seçimi: ')+JSON.stringify(h.snapshot.selection || {})+t('\nKesitler: ')+JSON.stringify(h.snapshot.cuts)+'\n' : '')+h.command).join('\n\n');
 }
-function button(label, action) {
+function button(label, action, plain=false) {
   const b=document.createElement('button'); b.textContent=label;
+  if(plain) b.className='plain-action';
   b.onclick=async()=>{ try { await action(); } catch(e) { $('status').textContent=t(e.message); alert(t(e.message)); } };
   return b;
 }
@@ -431,7 +433,7 @@ function showHistory() {
     actions.append(button(t('Kopyala'),()=>{
       if (!h.snapshot) throw Error(t('Bu eski kaydı güncel kurallarla oluşturmak için bağlantılarını yeniden girin.'));
       return copyText(Builder.build({...h.snapshot,language,settings:Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema)}).command);
-    }),button(t('TXT dışa aktar'),()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
+    },true),button(t('TXT dışa aktar'),()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
       button(t('Tekrar düzenle'),()=>{
         if (!h.snapshot) { alert(t('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.')); return; }
         state.settings=Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema); state.schema=2; state.links=h.snapshot.links;
@@ -440,7 +442,7 @@ function showHistory() {
         if (!await askConfirm(t('Bu işlem geçmişi kaydı silinsin mi?'),{title:t('Kaydı sil')})) return;
         const old=state.history; state.history=old.filter((_,n)=>n!==i);
         try { persist(); } catch(e) { state.history=old; throw e; } showHistory();
-      }));
+      },true));
     item.append(actions);
     });
     day.append(item);
@@ -556,29 +558,23 @@ $('copy').onclick=async()=>{
   } catch(e) { $('status').textContent=t(e.message); }
   finally {copying=false;preview();}
 };
-let historyScrollY=0;
-function unlockHistoryScroll() {
-  if(!document.documentElement.classList.contains('history-open')) return;
-  document.documentElement.classList.remove('history-open');
-  document.documentElement.style.removeProperty('--history-scroll-top');
-  window.scrollTo(0,historyScrollY);
+function closeHistory() {
+  $('historyPanel').hidden=true;
+  $('historyBtn').setAttribute('aria-expanded','false');
 }
-function closeHistory() { $('dialog').close(); unlockHistoryScroll(); }
 $('settingsBtn').onclick=()=>{
   const expanded=$('settingsPanel').hidden;
   $('settingsPanel').hidden=!expanded;
   $('settingsBtn').setAttribute('aria-expanded',String(expanded));
 };
 $('historyBtn').onclick=()=>{
-  showHistoryPanel('commands'); historyScrollY=window.scrollY;
-  document.documentElement.style.setProperty('--history-scroll-top',-historyScrollY+'px');
-  document.documentElement.classList.add('history-open'); $('dialog').showModal();
+  if(!$('historyPanel').hidden) {closeHistory();return;}
+  showHistoryPanel('commands');
+  $('historyPanel').hidden=false;
+  $('historyBtn').setAttribute('aria-expanded','true');
 };
-$('dialog').addEventListener('cancel',e=>{e.preventDefault();closeHistory();});
-$('dialog').addEventListener('close',unlockHistoryScroll);
 $('historyTab').onclick=()=>showHistoryPanel('commands');
 $('notesLogTab').onclick=()=>showHistoryPanel('notes');
-$('close').onclick=closeHistory;
 $('clear').onclick=()=>{
   askConfirm(t('Tüm işlem geçmişi kalıcı olarak silinsin mi?'),{title:t('İşlem geçmişini temizle'),accept:t('Tümünü sil')}).then(confirmed=>{
   if (!confirmed) return;
@@ -586,7 +582,7 @@ $('clear').onclick=()=>{
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(t(e.message)); }
   });
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.5',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.6',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
@@ -677,7 +673,7 @@ $('notesDialog').addEventListener('cancel',e=>{e.preventDefault();closeNotes();}
 window.handleBack=()=>{
   if($('confirmDialog').open) {$('confirmCancel').click();return true;}
   if($('notesDialog').open) {closeNotes();return true;}
-  if($('dialog').open) {closeHistory();return true;}
+  if(!$('historyPanel').hidden) {closeHistory();return true;}
   return false;
 };
 window.prepareExit=()=>flushNotesDailyLog() && save();

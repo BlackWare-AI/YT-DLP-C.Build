@@ -67,16 +67,28 @@ const root=path.resolve(__dirname,'..');
   });
   await page.click('#historyBtn');
   assert.equal(await page.locator('.history-day').count(),2);
+  assert.equal(await page.locator('#close').count(),0);
+  assert.deepEqual(await page.locator('.history-actions > button').evaluateAll(nodes=>nodes.map(el=>el.id)),['exportSettings','export','clear']);
+  assert.equal(await page.locator('.history-actions > button').first().evaluate(el=>getComputedStyle(el).fontSize),'11px');
   assert.equal(await page.locator('.history-day[open]').count(),0);
   assert.equal(await page.locator('.history-day').first().locator('.history-item').count(),2);
   assert.equal(await page.locator('.history-item summary').first().isVisible(),false);
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
-  await page.evaluate(()=>new Promise(resolve=>{
-    document.getElementById('dialog').addEventListener('close',resolve,{once:true});
-    document.getElementById('close').click();
-  }));
+  for(const width of [320,390,650]) {
+    await page.setViewportSize({width,height:844});
+    const tabs=await page.locator('.history-tabs > button').evaluateAll(nodes=>nodes.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,top:r.top};}));
+    assert.ok(Math.abs(tabs[0].width-tabs[1].width)<1&&Math.abs(tabs[0].top-tabs[1].top)<1);
+    const controls=await page.locator('.history-actions > button').evaluateAll(nodes=>nodes.map(el=>{const r=el.getBoundingClientRect();return {top:r.top,left:r.left,right:r.right};}));
+    assert.ok(controls.every(r=>Math.abs(r.top-controls[0].top)<1));
+    assert.ok(controls[0].right<=controls[1].left&&controls[1].right<=controls[2].left);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }
+  await page.setViewportSize({width:390,height:844});
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+  await page.locator('#historyPanel').screenshot({path:path.join(root,'test-results/history-card-116-tr.png')});
+  await page.click('#historyBtn');
   await page.evaluate(()=>{state.history=window.originalHistory;delete window.originalHistory;showHistory();});
 
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));
@@ -86,27 +98,41 @@ const root=path.resolve(__dirname,'..');
     return {content:s.content,width:s.width,height:s.height,color:s.backgroundColor};
   }));
   assert.deepEqual(markers,[{content:'""',width:'6px',height:'6px',color:'rgb(255, 255, 255)'},{content:'""',width:'4.5px',height:'4.5px',color:'rgb(255, 255, 255)'}]);
-  for(const close of ['button','escape','back']) {
-    await page.evaluate(()=>{window.scrollTo(0,450);document.getElementById('historyBtn').click();});
-    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),true);
-    const lockedTop=await page.locator('body').evaluate(el=>el.getBoundingClientRect().top);
-    await page.mouse.move(2,400);await page.mouse.wheel(0,500);
-    // Playwright's wheel dispatch returns before the browser finishes processing it.
-    await page.waitForTimeout(150);
-    assert.equal(await page.locator('body').evaluate(el=>el.getBoundingClientRect().top),lockedTop);
-    if(close==='button') await page.click('#close');
-    else if(close==='escape') await page.keyboard.press('Escape');
+  for(const close of ['toggle','back']) {
+    await page.click('#historyBtn');
+    assert.equal(await page.locator('#historyPanel').isVisible(),true);
+    assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'true');
+    assert.notEqual(await page.locator('body').evaluate(el=>getComputedStyle(el).position),'fixed');
+    assert.equal(await page.locator('dialog[open]').count(),0);
+    assert.equal(await page.evaluate(()=>document.getElementById('historyPanel').getBoundingClientRect().top>=document.querySelector('.app-footer-header').getBoundingClientRect().bottom),true);
+    if(close==='toggle') await page.click('#historyBtn');
     else await page.evaluate(()=>window.handleBack());
-    await page.waitForTimeout(100); // Finish the dialog close/focus cycle before reopening.
-    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('history-open')),false);
-    assert.equal(await page.evaluate(()=>window.scrollY),450);
+    assert.equal(await page.locator('#historyPanel').isVisible(),false);
+    assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'false');
   }
 
-  assert.equal(await page.evaluate(()=>document.querySelector('.setup').nextElementSibling.contains(document.getElementById('copy'))),true);
-  assert.equal(await page.evaluate(()=>document.querySelector('.copy-action').nextElementSibling.className),'links-section');
+  assert.equal(await page.evaluate(()=>document.querySelector('#modes [data-value=frame]').nextElementSibling.id),'copy');
+  assert.equal(await page.evaluate(()=>document.getElementById('modeHint').nextElementSibling.className),'copy-action');
+  assert.equal(await page.locator('#copy').innerText(),'Kopyala');
+  assert.equal(await page.getAttribute('#copy','aria-pressed'),null);
+  const placeholder=await page.getAttribute('#links','placeholder');
+  assert.match(placeholder,/stories\/kullanıcı\/123\//);assert.match(placeholder,/reel\/ABC\//);assert.doesNotMatch(placeholder,/https?:/);
+  assert.equal(await page.locator('#links').evaluate(el=>getComputedStyle(el,'::placeholder').color),'rgb(96, 96, 96)');
+  const surfaces=await page.evaluate(()=>Array.from(document.querySelectorAll('main section,main section button,main section input,main section textarea')).map(el=>getComputedStyle(el).backgroundColor));
+  assert.ok(surfaces.every(color=>color==='rgb(0, 0, 0)'));
+  for(const selector of ['#copy','#copy .mode-symbol','#paste']) assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).borderTopColor),'rgba(0, 0, 0, 0)');
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+  await page.screenshot({path:path.join(root,'test-results/amoled-116.png'),fullPage:true});
   await page.click('#notesBtn');
   await page.locator('#notes').click(); // Wait for the slide-in animation to settle.
+  assert.equal(await page.locator('#notes').evaluate(el=>getComputedStyle(el).borderTopStyle),'dashed');
+  for(const selector of ['#notesClear','#notesPaste']) {
+    const style=await page.locator(selector).evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,border:s.borderTopColor};});
+    assert.deepEqual(style,{background:'rgb(0, 0, 0)',border:'rgba(0, 0, 0, 0)'});
+  }
+  await page.screenshot({path:path.join(root,'test-results/notes-empty-116.png')});
   await page.fill('#notes','Önceki not V4S');
+  assert.equal(await page.locator('#notes').evaluate(el=>getComputedStyle(el).borderTopStyle),'solid');
   const point=await page.locator('#notes').evaluate(el=>{
     const r=el.getBoundingClientRect(),s=getComputedStyle(el),line=parseFloat(s.lineHeight);
     return {x:r.x+20,y:r.y+parseFloat(s.borderTopWidth)+parseFloat(s.paddingTop)+4.5*line};
@@ -202,9 +228,9 @@ const root=path.resolve(__dirname,'..');
   const exported=fs.readFileSync(await download.path(),'utf8');assert.ok(exported.includes(command));
   await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();
   assert.equal(await page.getAttribute('#modes [data-value=audio]','aria-pressed'),'true');
-  await page.click('#historyBtn');await page.click('#clear');assert.equal(await page.locator('#confirmDialog').isVisible(),true);await page.evaluate(()=>window.handleBack());await page.waitForFunction(()=>!document.getElementById('confirmDialog').open);assert.equal(await page.locator('#dialog').isVisible(),true);assert.equal(await page.locator('.history-item').count(),2);
+  await page.click('#historyBtn');await page.click('#clear');assert.equal(await page.locator('#confirmDialog').isVisible(),true);await page.evaluate(()=>window.handleBack());await page.waitForFunction(()=>!document.getElementById('confirmDialog').open);assert.equal(await page.locator('#historyPanel').isVisible(),true);assert.equal(await page.locator('.history-item').count(),2);
   await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Sil',exact:true}).first().click();await page.click('#confirmAccept');assert.equal(await page.locator('.history-item').count(),1);
-  await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#dialog').isVisible(),false);
+  await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#historyPanel').isVisible(),false);
   await page.click('#modes [data-value=video]');await page.click('#addCut');await page.click('#addCut');await page.click('#addCut');await page.locator('#cuts .cut button').last().click();assert.equal(await page.locator('#cuts .cut').count(),2);
   assert.equal(await page.locator('#itemSection').isVisible(),false);
   await page.fill('#links','https://instagram.com/stories/collection.user/ https://instagram.com/p/POST');
@@ -228,7 +254,7 @@ const root=path.resolve(__dirname,'..');
   const backupPromise=page.waitForEvent('download');await page.click('#exportSettings');const backupDownload=await backupPromise;
   const backup=JSON.parse(fs.readFileSync(await backupDownload.path(),'utf8'));
   assert.equal(backup.state.notes,compactNote);assert.deepEqual(backup.state,await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state'))));assert.equal(backup.state.selection.after,'3');assert.equal(backup.state.cuts.length,2);assert.equal(backup.state.settings.mode,'still');assert.equal(backup.state.history.length,1);
-  await page.click('#close');const selectedCommand=await page.textContent('#output');await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');
+  await page.click('#historyBtn');const selectedCommand=await page.textContent('#output');await page.click('#copy');await page.waitForFunction(()=>document.getElementById('links').value==='');
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).cuts.length),0);
   for(const id of ['itemOnly','itemAfter','itemBefore']) assert.equal(await page.inputValue('#'+id),'');
   await page.reload();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('builder.state')).cuts.length),0);
@@ -236,7 +262,7 @@ const root=path.resolve(__dirname,'..');
   await page.click('#historyBtn');await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();assert.equal(await page.inputValue('#itemAfter'),'3');assert.match(await page.textContent('#output'),/--playlist-items "4:6"/);assert.equal(await page.textContent('#output'),selectedCommand);
   await page.click('#modes [data-value=video]');
   console.log('PASS: optional item indices/ranges in all modes; copy resets cuts and selection; full JSON backup preserves every saved field');
-  for(const width of [320,390,760]){await page.setViewportSize({width,height:844});const widths=await page.evaluate(()=>['copy','notesBtn'].map(id=>document.getElementById(id).getBoundingClientRect().width));assert.ok(Math.abs(widths[0]-widths[1])<1);const heights=await page.evaluate(()=>[document.querySelector('#engines button').getBoundingClientRect().height,...Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)]);assert.ok(heights.every(h=>Math.abs(h-heights[0])<1));const iconFits=await page.evaluate(()=>Array.from(document.querySelectorAll('.mode-symbol')).every(el=>el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1));assert.equal(iconFits,true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);}
+  for(const width of [320,390,760]){await page.setViewportSize({width,height:844});const aligned=await page.evaluate(()=>{const frame=document.querySelector('#modes [data-value=frame]').getBoundingClientRect(),copy=document.getElementById('copy').getBoundingClientRect(),notes=document.getElementById('notesBtn').getBoundingClientRect();return Math.abs(frame.width-copy.width)<1&&Math.abs(frame.top-copy.top)<1&&Math.abs(frame.left-notes.left)<1&&Math.abs(copy.right-notes.right)<1;});assert.equal(aligned,true);const heights=await page.evaluate(()=>[document.querySelector('#engines button').getBoundingClientRect().height,...Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)]);assert.ok(heights.every(h=>Math.abs(h-heights[0])<1));const iconFits=await page.evaluate(()=>Array.from(document.querySelectorAll('.mode-symbol')).every(el=>el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1));assert.equal(iconFits,true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);}
   fs.mkdirSync(path.join(root,'test-results'),{recursive:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(root,'test-results/phone.png'),fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS: UI modes, cuts, validation, persistence, clipboard, deduplication, history edit/delete/export and 320–760 px layouts');
@@ -279,7 +305,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('#notesDailyHistory .daily-note-item pre').first().isVisible(),true);
   assert.equal(await page.getAttribute('#notesLogTab','aria-selected'),'true');
   await page.click('#historyTab');assert.equal(await page.locator('#historyView').isVisible(),true);
-  await page.click('#close');
+  await page.click('#historyBtn');
   const preservedLogs=await page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('builder.state'));return {daily:s.notesDailyHistory,history:s.history};});
   await page.click('#notesBtn');
   assert.equal(await page.locator('#notesClear').evaluate(el=>getComputedStyle(el).bottom),'8px');

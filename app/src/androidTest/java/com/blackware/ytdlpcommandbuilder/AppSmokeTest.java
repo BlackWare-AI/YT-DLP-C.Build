@@ -160,11 +160,11 @@ public final class AppSmokeTest extends InstrumentationTestCase {
             js("document.getElementById('copy').click();true");
             await("JSON.parse(Android.getState()).history.length===1");
             js("document.getElementById('historyBtn').click();true");
-            await("document.getElementById('dialog').open && document.querySelectorAll('.history-item').length===1");
+            await("!document.getElementById('historyPanel').hidden && document.querySelectorAll('.history-item').length===1");
             verifyExport(false);
             verifyExport(true);
             assertEquals("true",js("window.handleBack()"));
-            assertEquals("false",js("document.getElementById('dialog').open"));
+            assertEquals("false",js("!document.getElementById('historyPanel').hidden"));
             js("document.getElementById('links').value='https://instagram.com/stories/persist.user/1https://instagram.com/reel/restored/';document.getElementById('links').dispatchEvent(new Event('input'));true");
             getInstrumentation().runOnMainSync(() -> activity.finish());
             getInstrumentation().waitForIdleSync();

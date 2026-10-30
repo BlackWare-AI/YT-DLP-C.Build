@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 package=com.blackware.ytdlpcommandbuilder
-suffix=""; evidence=release; engine_label='Motor seç'; copy_label='Komutu kopyala'
+suffix=""; evidence=release; engine_label='Motor seç'; copy_label='Kopyala'
 if [ "${APP_EDITION:-tr}" = en ]; then
-  package="${package}.en"; suffix="-EN"; evidence=release-en; engine_label='Choose engine'; copy_label='Copy command'
+  package="${package}.en"; suffix="-EN"; evidence=release-en; engine_label='Choose engine'; copy_label='Copy'
 fi
 capture_evidence() {
   adb exec-out screencap -p > "${evidence}-screen.png" || true
