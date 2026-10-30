@@ -1,11 +1,13 @@
 Türkçe
-- Kare zamanı ve Video kesitleri kartları artık uygun mod seçiliyken en az bir geçerli Instagram bağlantısı girildiğinde görünür.
-- Son bağlantı kaldırıldığında, alan boşaltıldığında veya yalnızca geçersiz metin kaldığında kartlar gizlenir. Tekrar bağlantı eklenince mevcut kesit ve kare zamanı seçimleri korunarak açılır.
-- Komut üretimi, kayıtlar, diğer kartlar, güncelleme onayı ve TR/EN düzenleri korunur.
+- Düzenle, Kopyala ve Sil simgeleri mevcut Yapıştır simgesinin yuvarlak tasarımına uyarlandı.
+- Tüm bu simgeler aynı 20 px boyutu, 1,5 çizgi kalınlığı, yuvarlatılmış uçlar ve birleşimler kullanır. Kopyala kartlarının ve çöp kutusunun gövde köşeleri yapıştırdaki gibi geniş yuvarlatılmıştır.
+- Ana Kopyala düğmesi ve işlem geçmişi aynı kopyalama simgesini; Link Notları ve geçmiş aynı silme simgesini kullanır.
+- Yapıştır simgesi, düğme kutuları, işlevler, kayıtlar, komut üretimi ve önceki düzenlemeler korunur.
 
 English
-- Frame time and Video segments now appear only when the matching mode is selected and at least one valid Instagram link is entered.
-- Removing the last link, clearing the field or leaving only invalid text hides these cards. Existing cuts and frame-time selections are preserved when links are added again.
-- Command generation, saved data, other cards, update confirmation and both edition layouts are preserved.
+- Edit, Copy and Delete icons now follow the existing Paste icon’s rounded design.
+- These icons share a 20 px size, 1.5 stroke width, rounded ends and joins. Copy cards and the bin body use the same broad corner rounding as Paste.
+- Main Copy and history share the copy icon; Link Notes and history share the delete icon.
+- Paste artwork, button boxes, actions, saved data, command generation and previous changes are preserved.
 
 Android 10+ · 1.1.6 · version code 17 · existing release signing key.

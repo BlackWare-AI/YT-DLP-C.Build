@@ -177,12 +177,20 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('.history-item').getByRole('button',{name:/TXT/}).count(),0);
   assert.equal(await recordActions.nth(1).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#copy svg').evaluate(el=>el.innerHTML));
   assert.equal(await recordActions.nth(2).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#notesClear svg').evaluate(el=>el.innerHTML));
+  const iconFamily=await page.locator('#paste svg,#notesPaste svg,#copy svg,#notesClear svg,.history-item-actions svg').evaluateAll(nodes=>nodes.map(svg=>{
+    const style=getComputedStyle(svg);return {width:parseFloat(style.width),height:parseFloat(style.height),stroke:svg.getAttribute('stroke-width'),cap:svg.getAttribute('stroke-linecap'),join:svg.getAttribute('stroke-linejoin')};
+  }));
+  assert.ok(iconFamily.every(icon=>icon.width===20&&icon.height===20&&icon.stroke==='1.5'&&icon.cap==='round'&&icon.join==='round'));
+  assert.equal(await recordActions.nth(1).locator('rect').getAttribute('rx'),'3');
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
     const row=await recordActions.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height,left:r.left,right:r.right};}));
     assert.ok(row.every(r=>r.width===42&&r.height===42&&Math.abs(r.top-row[0].top)<1));
     assert.ok(row[0].right<row[1].left&&row[1].right<row[2].left);
   }
+  await page.setViewportSize({width:390,height:844});
+  fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+  await page.locator('#historyPanel').screenshot({path:path.join(root,'test-results/history-icons-rounded-tr.png')});
   for(const id of ['settingsPanel','historyPanel'])assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).borderTopColor),'rgba(0, 0, 0, 0)');
 
   assert.equal(await page.locator('#clear').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(51, 51, 51)');
