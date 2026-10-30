@@ -142,6 +142,34 @@ const root=path.resolve(__dirname,'..');
   await page.click('#historyBtn');
   await page.evaluate(()=>{state.history=window.originalHistory;delete window.originalHistory;showHistory();});
 
+  // Time controls follow parsed links, and hiding never discards selections.
+  for(const mode of ['av','video','frame','audio','still']) {
+    await page.click('#modes [data-value='+mode+']');
+    for(const text of ['', 'https://example.org/not-instagram']) {
+      await page.fill('#links',text);
+      assert.equal(await page.locator('#cutSection').isVisible(),false);
+      assert.equal(await page.locator('#frameSection').isVisible(),false);
+    }
+    await page.fill('#links','reel/TimeGate');
+    assert.equal(await page.locator('#cutSection').isVisible(),['av','video'].includes(mode));
+    assert.equal(await page.locator('#frameSection').isVisible(),mode==='frame');
+    await page.locator('#linkList button').click();
+    assert.equal(await page.locator('#cutSection').isVisible(),false);
+    assert.equal(await page.locator('#frameSection').isVisible(),false);
+  }
+  await page.click('#modes [data-value=av]');await page.fill('#links','reel/TimeGate');
+  await page.click('#addCut');await page.locator('#cuts input').nth(0).fill('0');await page.locator('#cuts input').nth(1).fill('3');
+  await page.fill('#links','');assert.equal(await page.locator('#cutSection').isVisible(),false);
+  assert.equal(await page.locator('#cuts input').nth(1).inputValue(),'3');
+  await page.fill('#links','reel/TimeGate');assert.equal(await page.locator('#cutSection').isVisible(),true);
+  assert.match(await page.textContent('#output'),/--download-sections "\*0-3"/);
+  await page.click('#fullVideo');await page.click('#modes [data-value=frame]');
+  await page.click('#frameTimes [data-frame-time=custom]');await page.fill('#frameCustomTime','0.75');
+  await page.fill('#links','');await page.reload();assert.equal(await page.locator('#frameSection').isVisible(),false);
+  assert.equal(await page.inputValue('#frameCustomTime'),'0.75');
+  await page.fill('#links','reel/TimeGate');assert.equal(await page.locator('#frameSection').isVisible(),true);
+  assert.match(await page.textContent('#output'),/abs\(t-0\.75\)/);
+  await page.click('#frameTimes [data-frame-time="0.5"]');await page.fill('#links','');await page.click('#modes [data-value=av]');
   assert.equal(await page.textContent('#checkUpdate'),'');assert.equal(await page.locator('#checkUpdate svg').count(),1);
   assert.equal(await page.locator('#checkUpdate').evaluate(el=>getComputedStyle(el).color),'rgb(187, 187, 187)');
   assert.equal(await page.locator('#copy').innerText(),'Copy');

@@ -293,8 +293,6 @@ function renderButtons() {
       b.classList.toggle('active',active); b.setAttribute('aria-pressed',String(active));
     }
   }
-  $('cutSection').hidden = !['av','video'].includes(state.settings.mode);
-  $('frameSection').hidden = state.settings.mode!=='frame';
   $('frameCustomTime').hidden = state.settings.frameTime!=='custom';
   for(const button of $('frameTimes').querySelectorAll('button[data-frame-time]')) {
     const active=button.dataset.frameTime===state.settings.frameTime;
@@ -346,6 +344,8 @@ function renderLinks(urls) {
   });
 }
 function renderSelection(urls) {
+  $('cutSection').hidden = !urls.length || !['av','video'].includes(state.settings.mode);
+  $('frameSection').hidden = !urls.length || state.settings.mode!=='frame';
   const kinds=urls.map(Builder.collectionKind).filter(Boolean);
   $('itemSection').hidden=!kinds.length;
   const active=kinds.length && Object.keys(state.selection).some(k=>String(state.selection[k]).trim());
