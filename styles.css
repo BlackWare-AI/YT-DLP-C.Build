@@ -54,7 +54,7 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 #links::placeholder{color:#606060}
 #copy.copy-mode{margin:0;width:100%;background:#f2f2f2;color:#000;border-color:transparent}
 #copy .mode-symbol{border-color:transparent}
-#copy .copy-icon{width:24px;height:24px;flex-shrink:0}
+#copy .copy-icon{width:20px;height:20px;flex-shrink:0}
 .copy-action{margin:14px 0 0}
 #notesBtn{width:100%;min-height:49px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px}
 #notesBtn .notes-icon{flex-shrink:0}
@@ -78,5 +78,5 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 /* Compact record actions retain their existing handlers and accessible names. */
 .history-item .history-item-actions{display:flex;flex-wrap:nowrap;justify-content:flex-end;gap:8px;margin:12px 0 0}
 .history-item-actions>button{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;min-height:42px;padding:0;margin:0;border-radius:12px}
-.history-item-actions svg{width:22px;height:22px;flex-shrink:0}
+.history-item-actions svg{width:20px;height:20px;flex-shrink:0}
 #settingsPanel,#historyPanel{border-color:transparent}

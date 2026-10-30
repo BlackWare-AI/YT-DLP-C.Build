@@ -176,10 +176,10 @@ function button(label, icon, action) {
   if(icon==='edit') {
     svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');
-    svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.8');
+    svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.5');
     svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','m14.5 5.5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z');
+    path.setAttribute('d','M14.5 5.5l4 4M5 20l3.4-.7a3 3 0 0 0 1.5-.8L19 9.4a3 3 0 0 0-4.2-4.2l-9.1 9.1a3 3 0 0 0-.8 1.5L4.2 19.2a.7.7 0 0 0 .8.8Z');
     svg.append(path);
   } else svg=$(icon==='copy'?'copy':'notesClear').querySelector('svg').cloneNode(true);
   svg.setAttribute('aria-hidden','true');b.append(svg);
