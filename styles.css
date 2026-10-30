@@ -29,10 +29,20 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 
 .app-footer-header{gap:8px}.app-footer-header>div{flex-shrink:0}#checkUpdate{flex:1;max-width:160px;min-height:42px;padding:8px;font-size:15px;line-height:1.35;background:#0a0a0a;color:#ddd;overflow-wrap:anywhere}#checkUpdate.update-available{background:#f2f2f2;color:#000;border-color:#f2f2f2;opacity:1}
 
-#historyBtn.history-button{border-radius:12px;display:flex;align-items:center;justify-content:center;background:#0a0a0a;border:1px solid #303030}
+#historyBtn.history-button,#settingsBtn.settings-button{border-radius:12px;display:flex;align-items:center;justify-content:center;background:#0a0a0a;border:1px solid #303030}
 
 html.history-open,html.history-open body{overflow:hidden!important;overscroll-behavior:none}html.history-open body{position:fixed;top:var(--history-scroll-top);left:0;right:0;width:100%}#dialog,#history,#notesDailyHistory,#dialog pre{overscroll-behavior:contain}
 
 /* Visual-only single-row dividers; the textarea and clipboard contain no dashes. */
 .notes-separator-layer{position:absolute;inset:1px;overflow:hidden;border-radius:11px;pointer-events:none;user-select:none;-webkit-user-select:none}
 .notes-group-divider{position:absolute;top:0;overflow:hidden;white-space:nowrap;color:#626262;pointer-events:none;user-select:none;-webkit-user-select:none}
+
+/* Remove only the outer borders of the requested main cards. */
+.setup,.links-section,.item-section,.item-section.has-selection,#cutSection,#frameSection,.command-section{border-color:transparent;margin-bottom:8px}
+.copy-action{margin-bottom:8px}
+.app-footer-header>div{flex:1;min-width:0;flex-shrink:1}
+#checkUpdate{flex:0 0 78px;max-width:78px;white-space:nowrap;overflow-wrap:normal;text-align:center}
+.settings-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;min-height:28px}
+@media(max-width:350px){.app-footer-header{gap:6px}}
+
+.history-day{background:#090909;border:1px solid #303030;border-radius:12px;padding:12px;margin:10px 0}.history-day>summary{font-size:12px;font-weight:600;color:#ccc;cursor:pointer}

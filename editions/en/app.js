@@ -407,11 +407,17 @@ function askConfirm(message,{title=t('Silme işlemi'),accept=t('Sil')}={}) {
   });
 }
 function showHistory() {
-  $('history').textContent=''; let day='';
+  $('history').textContent=''; const days=new Map();
   if (!state.history.length) $('history').textContent=t('Henüz kayıt yok.');
   state.history.forEach((h,i)=>{
     const d=new Date(h.date), key=d.toLocaleDateString(locale());
-    if (key!==day) { const title=document.createElement('h3'); title.textContent=d.toLocaleDateString(locale(),{day:'numeric',month:'long',year:'numeric'}); $('history').append(title); day=key; }
+    let day=days.get(key);
+    if(!day) {
+      day=document.createElement('details');day.className='history-day';
+      const title=document.createElement('summary');
+      title.textContent=d.toLocaleDateString(locale(),{day:'numeric',month:'long',year:'numeric'});
+      day.append(title);days.set(key,day);$('history').append(day);
+    }
     const item=document.createElement('details'); item.className='history-item';
     const summary=document.createElement('summary');
     summary.textContent=d.toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' | '+linkCount(Array.isArray(h.urls) ? h.urls.length : h.count)+' | '+
@@ -437,7 +443,7 @@ function showHistory() {
       }));
     item.append(actions);
     });
-    $('history').append(item);
+    day.append(item);
   });
 }
 function showNotesDailyHistory() {
@@ -558,6 +564,11 @@ function unlockHistoryScroll() {
   window.scrollTo(0,historyScrollY);
 }
 function closeHistory() { $('dialog').close(); unlockHistoryScroll(); }
+$('settingsBtn').onclick=()=>{
+  const expanded=$('settingsPanel').hidden;
+  $('settingsPanel').hidden=!expanded;
+  $('settingsBtn').setAttribute('aria-expanded',String(expanded));
+};
 $('historyBtn').onclick=()=>{
   showHistoryPanel('commands'); historyScrollY=window.scrollY;
   document.documentElement.style.setProperty('--history-scroll-top',-historyScrollY+'px');
@@ -575,7 +586,7 @@ $('clear').onclick=()=>{
   try { persist(); showHistory(); } catch(e) { state.history=old; alert(t(e.message)); }
   });
 };
-$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.4',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
+$('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.5',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
 $('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
