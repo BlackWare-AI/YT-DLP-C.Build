@@ -50,13 +50,13 @@ html.notes-open,html.notes-open body{overflow:hidden!important;overscroll-behavi
 :is(main>section,.history-day,.history-item,.daily-note-item){background:#000}
 :is(main section,#notesDialog) :is(button,input,textarea,select),.history-item button,#clear,#confirmAccept{background:#000}
 #links::placeholder{color:#606060}
-#copy.copy-mode{margin:0;width:100%;background:#000;color:#eee;border-color:transparent}
+#copy.copy-mode{margin:0;width:100%;background:#f2f2f2;color:#000;border-color:transparent}
 #copy .mode-symbol{border-color:transparent}
 #copy .copy-icon{width:24px;height:24px;flex-shrink:0}
 .copy-action{margin:14px 0 0}
 #notesBtn{width:100%;min-height:49px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px}
 #notesBtn .notes-icon{flex-shrink:0}
-#paste,#notesPaste,#notesClear,.cut button,.link-row button,.plain-action,#confirmAccept.plain-action{border-color:transparent}
+#paste,#notesPaste,#notesClear,.cut button,.link-row button{border-color:transparent}
 #notes.notes-empty{border-style:dashed;outline:none}
 
 .history-panel #history{max-height:none;overflow:visible}.history-panel .bar{align-items:flex-start}.history-panel .history-heading{min-width:0}

@@ -1,19 +1,17 @@
 Türkçe
-- Kartlar ve kart içindeki alan/düğme zeminleri tam AMOLED siyah yapıldı.
-- Kopyala, Yalnızca Kare’nin yanına mod kutusuyla aynı boyutta taşındı; simgesi büyütüldü. Mod açıklamasının altında tam genişlikte Link Notları düğmesi ve yeni simgesi yer alıyor.
-- Bağlantı örnekleri kısa stories/kullanıcı/123/ ve reel/ABC/ biçimine getirildi; örnek yazıları biraz soluklaştırıldı.
-- Boş Link Notları alanı kesikli kenarlık kullanıyor. Yapıştır/sil/kopyala düğmelerinin kenarlıkları kaldırıldı; yapıştır simgeleri yuvarlatıldı.
-- Geçmiş düğmesi artık modal yerine alt tarafta kart açar. İşlem Geçmişi/Not Günlüğü sekmeleri eşit genişlikte hizalandı; üst kapatma düğmesi kaldırıldı. Günlük gruplar ve tüm işlemler korunmuştur.
-- Ayarları JSON dışa aktar, TXT dışa aktar ve Tümünü temizle düğmeleri tek kompakt satırda sıralandı.
-- Komut üretimi, kayıtlar ve ayarların işleyişi korunmuştur. TR ve EN ayrı APK’lar.
+- AMOLED siyah kartlar, kısa bağlantı örnekleri, Yalnızca Kare yanındaki Kopyala ve mod açıklaması altındaki tam genişlikte Link Notları düzeni korunur.
+- Kopyala düğmesi önceki beyaz zemin/siyah yazıyı kullanır; pasifken %40 opaklıkla soluktur. Kopyalama işlevi değişmedi.
+- Geçmişte Kopyala, Sil, Tümünü temizle ve silme onayları kenarlıklarını korur. Ana ekrandaki ve not editöründeki simge düğmeleri mevcut düzenini korur.
+- Gelişmiş ayarlar ve Geçmiş kartları birbirini kapatır; aynı anda açılmaz.
+- Geçmişi aktar, işlem kayıtlarını, günlük notları ve mevcut Link Notlarını tek TXT dosyasında ayrı başlıklarla içerir. Tek kayıt TXT aktarımı ve tüm ayarların JSON aktarımı korunur.
+- Mevcut kayıtlar, komut üretimi ve güncelleme onayı korunur. TR ve EN ayrı APK’lar.
 
 English
-- Cards, their fields and buttons now use pure AMOLED black surfaces.
-- Copy sits beside Frame Only at the same size, with a larger icon. A full-width Link Notes button and new icon sit below the mode description.
-- Link examples use short stories/username/123/ and reel/ABC/ paths with slightly dimmer placeholder text.
-- Empty Link Notes uses a dashed border. Paste/delete/copy button borders are removed and clipboard icons are rounder.
-- History now opens as a card below the footer instead of a modal. History/Notes Log tabs share equal width; the top close button is removed. Daily groups and all record actions are preserved.
-- Settings JSON export, TXT export and Clear all are arranged in one compact row.
-- Command generation, stored records and settings behavior are preserved. Separate TR and EN APKs.
+- Keeps AMOLED-black cards, short link examples, Copy beside Frame Only, and full-width Link Notes below the mode description.
+- Copy restores its previous white background/black text and 40% disabled opacity. Copy behavior is unchanged.
+- History copy/delete/clear and deletion confirmation buttons retain their borders. Main/editor icon controls keep their current layout.
+- Advanced settings and History cards close one another and cannot open together.
+- Export history includes command records, daily notes and current Link Notes in one TXT with separate headings. Per-record TXT and full settings JSON exports are preserved.
+- Saved records, command generation and update confirmation are preserved. Separate TR/EN APKs.
 
 Android 10+ · 1.1.6 · version code 17 · existing release signing key.

@@ -161,9 +161,16 @@ function historyText(records) {
     '\nYalnızca komut oluşturuldu ve kopyalandı.\n'+(h.urls || []).join('\n')+'\n'+
     (h.snapshot ? JSON.stringify(h.snapshot.settings,null,2)+'\nÖğe seçimi: '+JSON.stringify(h.snapshot.selection || {})+'\nKesitler: '+JSON.stringify(h.snapshot.cuts)+'\n' : '')+h.command).join('\n\n');
 }
-function button(label, action, plain=false) {
+function allHistoryText() {
+  const notes=state.notesDailyHistory.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(record=>{
+    const [year,month,day]=record.date.split('-').map(Number);
+    return new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+
+      ' | '+Builder.countNoteLinks(record.notes||'')+' bağlantı'+'\n'+(record.notes||'');
+  }).join('\n\n');
+  return ['İŞLEM GEÇMİŞİ',historyText(state.history),'NOT GÜNLÜĞÜ',notes,'LİNK NOTLARI',state.notes||''].join('\n\n');
+}
+function button(label, action) {
   const b=document.createElement('button'); b.textContent=label;
-  if(plain) b.className='plain-action';
   b.onclick=async()=>{ try { await action(); } catch(e) { $('status').textContent=e.message; alert(e.message); } };
   return b;
 }
@@ -203,7 +210,7 @@ function showHistory() {
     actions.append(button('Kopyala',()=>{
       if (!h.snapshot) throw Error('Bu eski kaydı güncel kurallarla oluşturmak için bağlantılarını yeniden girin.');
       return copyText(Builder.build({...h.snapshot,settings:Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema)}).command);
-    },true),button('TXT dışa aktar',()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
+    }),button('TXT dışa aktar',()=>exportText(historyText([h]),'yt-dlp-command-'+i+'.txt')),
       button('Tekrar düzenle',()=>{
         if (!h.snapshot) { alert('Eski prototip kaydında düzenleme bilgisi bulunmuyor. Komutu kopyalayabilirsiniz.'); return; }
         state.settings=Builder.normalizeSettings(h.snapshot.settings,h.snapshot.schema); state.schema=2; state.links=h.snapshot.links;
@@ -212,7 +219,7 @@ function showHistory() {
         if (!await askConfirm('Bu işlem geçmişi kaydı silinsin mi?',{title:'Kaydı sil'})) return;
         const old=state.history; state.history=old.filter((_,n)=>n!==i);
         try { persist(); } catch(e) { state.history=old; throw e; } showHistory();
-      },true));
+      }));
     item.append(actions);
     });
     day.append(item);
@@ -332,13 +339,19 @@ function closeHistory() {
   $('historyPanel').hidden=true;
   $('historyBtn').setAttribute('aria-expanded','false');
 }
+function closeSettings() {
+  $('settingsPanel').hidden=true;
+  $('settingsBtn').setAttribute('aria-expanded','false');
+}
 $('settingsBtn').onclick=()=>{
   const expanded=$('settingsPanel').hidden;
+  if(expanded) closeHistory();
   $('settingsPanel').hidden=!expanded;
   $('settingsBtn').setAttribute('aria-expanded',String(expanded));
 };
 $('historyBtn').onclick=()=>{
   if(!$('historyPanel').hidden) {closeHistory();return;}
+  closeSettings();
   showHistoryPanel('commands');
   $('historyPanel').hidden=false;
   $('historyBtn').setAttribute('aria-expanded','true');
@@ -353,7 +366,7 @@ $('clear').onclick=()=>{
   });
 };
 $('exportSettings').onclick=()=>exportText(JSON.stringify({app:'YT-DLP Command Builder',version:'1.1.6',exportedAt:new Date().toISOString(),state},null,2),'yt-dlp-builder-backup.json');
-$('export').onclick=()=>exportText(historyText(state.history),'yt-dlp-command-history.txt');
+$('export').onclick=()=>exportText(allHistoryText(),'yt-dlp-history.txt');
 function saveNotes() {
   state.notes=$('notes').value;
   state.notesDraftDate=localDateKey(new Date());
