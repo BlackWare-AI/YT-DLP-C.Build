@@ -27,6 +27,28 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.evaluate(()=>document.querySelector('#settingsPanel').getBoundingClientRect().top>=document.querySelector('.app-footer-header').getBoundingClientRect().bottom),true);
   await page.click('#settingsBtn');
   assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  await page.click('#settingsBtn');await page.click('#historyBtn');
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  assert.equal(await page.getAttribute('#settingsBtn','aria-expanded'),'false');
+  assert.equal(await page.locator('#historyPanel').isVisible(),true);
+  await page.click('#settingsBtn');
+  assert.equal(await page.locator('#historyPanel').isVisible(),false);
+  assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'false');
+  assert.equal(await page.locator('#settingsPanel').isVisible(),true);
+  await page.click('#settingsBtn');
+  const exportedFixture=await page.evaluate(()=>{
+    const oldHistory=state.history,oldDaily=state.notesDailyHistory,oldNotes=state.notes;
+    try {
+      state.history=[];
+      state.notesDailyHistory=[{date:'2026-10-28',notes:'stories/archived.export/777 V1s'}];
+      state.notes='stories/current.export/888 S';
+      return allHistoryText();
+    } finally {state.history=oldHistory;state.notesDailyHistory=oldDaily;state.notes=oldNotes;}
+  });
+  assert.match(exportedFixture,/stories\/archived.export\/777 V1s/);
+  assert.match(exportedFixture,/stories\/current.export\/888 S/);
+  assert.match(exportedFixture,/COMMAND HISTORY/);
+  assert.equal(await page.textContent('#export'),'Export history');
   await page.evaluate(()=>{
     window.originalHistory=state.history;
     const record=date=>({date,urls:['https://instagram.com/reel/example'],mode:'video',engine:'normal',command:'example'});
@@ -44,6 +66,11 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
+  await page.locator('.history-item summary').first().click();await page.waitForSelector('.history-item button');
+  const borders=await page.locator('.history-item').first().locator('button').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).borderTopColor));
+  assert.equal(borders[0],'rgb(51, 51, 51)');assert.equal(borders[3],'rgb(51, 51, 51)');
+  assert.equal(await page.locator('#clear').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(51, 51, 51)');
+  await page.locator('.history-item summary').first().click();
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
     const tabs=await page.locator('.history-tabs > button').evaluateAll(nodes=>nodes.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,top:r.top};}));
@@ -100,6 +127,7 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('.daily-note-item pre').filter({hasText:'Değişmeyen günlük notu'}).innerText(),'Değişmeyen günlük notu');
   await page.click('#historyBtn');await page.click('#notesBtn');await page.click('#notesClear');
   assert.equal(await page.textContent('#confirmTitle'),'Clear Link Notes');
+  assert.equal(await page.locator('#confirmAccept').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(88, 48, 48)');
   assert.match(await page.textContent('#confirmMessage'),/Notes Log and command history will be kept/);
   await page.click('#confirmCancel');await page.click('#notesClose');
   await page.evaluate(()=>{window.Android={checkUpdates(){window.preCheckStatus=document.getElementById('updateStatus').textContent;window.setUpdateStatus('Güncelleme mevcut: 1.1.3',false,true);}};});

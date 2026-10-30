@@ -59,6 +59,28 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.evaluate(()=>document.querySelector('#settingsPanel').getBoundingClientRect().top>=document.querySelector('.app-footer-header').getBoundingClientRect().bottom),true);
   await page.click('#settingsBtn');
   assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  await page.click('#settingsBtn');await page.click('#historyBtn');
+  assert.equal(await page.locator('#settingsPanel').isVisible(),false);
+  assert.equal(await page.getAttribute('#settingsBtn','aria-expanded'),'false');
+  assert.equal(await page.locator('#historyPanel').isVisible(),true);
+  await page.click('#settingsBtn');
+  assert.equal(await page.locator('#historyPanel').isVisible(),false);
+  assert.equal(await page.getAttribute('#historyBtn','aria-expanded'),'false');
+  assert.equal(await page.locator('#settingsPanel').isVisible(),true);
+  await page.click('#settingsBtn');
+  const exportedFixture=await page.evaluate(()=>{
+    const oldHistory=state.history,oldDaily=state.notesDailyHistory,oldNotes=state.notes;
+    try {
+      state.history=[];
+      state.notesDailyHistory=[{date:'2026-10-28',notes:'stories/archived.export/777 V1s'}];
+      state.notes='stories/current.export/888 S';
+      return allHistoryText();
+    } finally {state.history=oldHistory;state.notesDailyHistory=oldDaily;state.notes=oldNotes;}
+  });
+  assert.match(exportedFixture,/stories\/archived.export\/777 V1s/);
+  assert.match(exportedFixture,/stories\/current.export\/888 S/);
+  assert.match(exportedFixture,/İŞLEM GEÇMİŞİ/);
+  assert.equal(await page.textContent('#export'),'Geçmişi aktar');
   await page.evaluate(()=>{
     window.originalHistory=state.history;
     const record=date=>({date,urls:['https://instagram.com/reel/example'],mode:'video',engine:'normal',command:'example'});
@@ -76,6 +98,11 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
+  await page.locator('.history-item summary').first().click();await page.waitForSelector('.history-item button');
+  const borders=await page.locator('.history-item').first().locator('button').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).borderTopColor));
+  assert.equal(borders[0],'rgb(51, 51, 51)');assert.equal(borders[3],'rgb(51, 51, 51)');
+  assert.equal(await page.locator('#clear').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(51, 51, 51)');
+  await page.locator('.history-item summary').first().click();
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
     const tabs=await page.locator('.history-tabs > button').evaluateAll(nodes=>nodes.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,top:r.top};}));
@@ -118,8 +145,9 @@ const root=path.resolve(__dirname,'..');
   const placeholder=await page.getAttribute('#links','placeholder');
   assert.match(placeholder,/stories\/kullanıcı\/123\//);assert.match(placeholder,/reel\/ABC\//);assert.doesNotMatch(placeholder,/https?:/);
   assert.equal(await page.locator('#links').evaluate(el=>getComputedStyle(el,'::placeholder').color),'rgb(96, 96, 96)');
-  const surfaces=await page.evaluate(()=>Array.from(document.querySelectorAll('main section,main section button,main section input,main section textarea')).map(el=>getComputedStyle(el).backgroundColor));
+  const surfaces=await page.evaluate(()=>Array.from(document.querySelectorAll('main section,main section button,main section input,main section textarea')).filter(el=>el.id!=='copy').map(el=>getComputedStyle(el).backgroundColor));
   assert.ok(surfaces.every(color=>color==='rgb(0, 0, 0)'));
+  assert.deepEqual(await page.locator('#copy').evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,opacity:s.opacity};}),{background:'rgb(242, 242, 242)',color:'rgb(0, 0, 0)',opacity:'0.4'});
   for(const selector of ['#copy','#copy .mode-symbol','#paste']) assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).borderTopColor),'rgba(0, 0, 0, 0)');
   fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
   await page.screenshot({path:path.join(root,'test-results/amoled-116.png'),fullPage:true});
@@ -173,6 +201,7 @@ const root=path.resolve(__dirname,'..');
   await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#notesDialog').isVisible(),false);
   await page.fill('#newLink','https://instagram.com/reel/unfinished');await page.reload();assert.equal(await page.inputValue('#newLink'),'https://instagram.com/reel/unfinished');await page.fill('#newLink','');
   await page.fill('#links','https://instagram.com/stories/draft.user/1');
+  assert.equal(await page.locator('#copy').evaluate(el=>getComputedStyle(el).opacity),'1');
   await page.reload();assert.match(await page.inputValue('#links'),/draft.user/);
   // A fresh document restores the saved draft; Android process death is tested separately.
   const restored=await context.newPage();await restored.goto(url);assert.match(await restored.inputValue('#links'),/draft.user/);await restored.close();await page.bringToFront();
@@ -225,7 +254,7 @@ const root=path.resolve(__dirname,'..');
   await page.click('#modes [data-value=still]');assert.match(await page.textContent('#output'),/\*0-1/);
   await page.click('#historyBtn');assert.equal(await page.locator('.history-item').count(),2);
   const downloadPromise=page.waitForEvent('download');await page.click('#export');const download=await downloadPromise;
-  const exported=fs.readFileSync(await download.path(),'utf8');assert.ok(exported.includes(command));
+  const exported=fs.readFileSync(await download.path(),'utf8');assert.ok(exported.includes(command));assert.ok(exported.includes(compactNote));assert.match(exported,/NOT GÜNLÜĞÜ/);assert.match(exported,/LİNK NOTLARI/);
   await page.locator('.history-day > summary').first().click();await page.locator('.history-item summary').first().click();await page.getByRole('button',{name:'Tekrar düzenle',exact:true}).first().click();
   assert.equal(await page.getAttribute('#modes [data-value=audio]','aria-pressed'),'true');
   await page.click('#historyBtn');await page.click('#clear');assert.equal(await page.locator('#confirmDialog').isVisible(),true);await page.evaluate(()=>window.handleBack());await page.waitForFunction(()=>!document.getElementById('confirmDialog').open);assert.equal(await page.locator('#historyPanel').isVisible(),true);assert.equal(await page.locator('.history-item').count(),2);
