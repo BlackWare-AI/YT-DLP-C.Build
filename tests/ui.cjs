@@ -73,7 +73,10 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.history-day > summary').first().click();
   assert.equal(await page.locator('.history-item summary').first().isVisible(),true);
   assert.equal(await page.locator('.history-item pre').count(),0);
-  await page.click('#close');
+  await page.evaluate(()=>new Promise(resolve=>{
+    document.getElementById('dialog').addEventListener('close',resolve,{once:true});
+    document.getElementById('close').click();
+  }));
   await page.evaluate(()=>{state.history=window.originalHistory;delete window.originalHistory;showHistory();});
 
   const cardSizes=await page.evaluate(()=>({engine:document.querySelector('#engines button').getBoundingClientRect().height,modes:Array.from(document.querySelectorAll('#modes button')).map(b=>b.getBoundingClientRect().height)}));

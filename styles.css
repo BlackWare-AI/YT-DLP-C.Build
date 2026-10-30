@@ -42,7 +42,6 @@ html.history-open,html.history-open body{overflow:hidden!important;overscroll-be
 .copy-action{margin-bottom:8px}
 .app-footer-header>div{flex:1;min-width:0;flex-shrink:1}
 #checkUpdate{flex:0 0 78px;max-width:78px;white-space:nowrap;overflow-wrap:normal;text-align:center}
-.app-footer-header .icon-button{min-height:42px}
 .settings-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;min-height:28px}
 @media(max-width:350px){.app-footer-header{gap:6px}}
 
