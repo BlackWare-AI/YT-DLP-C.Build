@@ -259,6 +259,28 @@ test('deleting a link preserves unrelated unfinished text and other links',()=>{
  const removed=B.removeUrl(raw,'https://www.instagram.com/reel/abc');
  assert.match(removed,/yarım not/);assert.match(removed,/stories\/a\/1/);assert.match(removed,/https:\/\/instag$/);assert.doesNotMatch(removed,/reel\/abc/);
 });
+test('removing short routes preserves every other link and annotations',()=>{
+ const raw='taslak metni\nstories/example/123/ V1s\nreel/ABC/ S\np/POST/\ntv/TV1/\nstories/example/456/\nhttps://instag';
+ for(const route of ['stories/example/123','reel/ABC','p/POST','tv/TV1','stories/example/456']) {
+  const target=B.parseUrls(route)[0],removed=B.removeUrl(raw,target);
+  assert.deepEqual(B.parseUrls(removed,true),B.parseUrls(raw,true).filter(url=>url!==target),route);
+  assert.match(removed,/taslak metni/);assert.match(removed,/https:\/\/instag$/);
+  assert.match(removed,/V1s/);assert.match(removed,/ S/);
+ }
+});
+test('removing repeated full and short representations removes only their shared row',()=>{
+ const raw='stories/example/123/\nhttps://instagram.com/stories/example/123?utm_source=x\ninstagram.com/stories/example/123\nstories/example/124/\nreel/ABC/';
+ const target=B.parseUrls('stories/example/123')[0];
+ const removed=B.removeUrl(raw,target);
+ assert.deepEqual(B.parseUrls(removed),B.parseUrls('stories/example/124\nreel/ABC'));
+ assert.doesNotMatch(removed,/example\/123/);
+});
+test('removing short routes with punctuation, share suffixes and bare account names',()=>{
+ for(const value of ['(reel/ABC/), stories/other/2','reel/ABC/?utm_source=x stories/other/2','@example.user V1s\nstories/other/2','example.user\nstories/other/2']) {
+  const urls=B.parseUrls(value),target=urls[0],removed=B.removeUrl(value,target);
+  assert.deepEqual(B.parseUrls(removed),urls.slice(1),value);
+ }
+});
 test('note cleaning removes only Instagram sharing suffixes and preserves format annotations',()=>{
   const raw='https://www.instagram.com/hilaalats?psln=MWFjOWFsejNnZjFqcw== V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nhttps://www.instagram.com/stories/didemsoydan/4015809594487502072?utm_source=ig_story_item_share&dlrf=ZHhoMWZ0OG9iMzgz V\nhttps://www.instagram.com/stories/mashadiduk/4015971660985413663?utm_source=ig_story_item_share&rpxt=dXNzdDMybHdhcnBr V1sec';
   assert.equal(B.cleanNotes(raw),'stories/hilaalats V4S(bak bu dördüncü sıradaki hikayenin linki indirilecek demek) \n\nstories/didemsoydan/4015809594487502072 V\nstories/mashadiduk/4015971660985413663 V1sec');
