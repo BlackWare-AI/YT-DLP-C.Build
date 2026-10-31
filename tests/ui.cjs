@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 12650)
-Total output lines: 498
-
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const http=require('node:http');
@@ -298,7 +295,24 @@ const root=path.resolve(__dirname,'..');
   await page.click('#notesClose');await page.click('#notesBtn');
   assert.equal(await page.inputValue('#notes'),'stories/didemsoydan/4015809594487502072 V\nÖzel not ?silinmesin');
   await page.click('#notesClose');
-  console.log('PASS: blank-line positioning, selection paste, standard paste, Instagram cleanup, format notes and…650 tokens truncated…'linkStatus').textContent.includes('Pano boş'));assert.match(await page.textContent('#linkStatus'),/Pano boş/);
+  console.log('PASS: blank-line positioning, selection paste, standard paste, Instagram cleanup, format notes and persistence');
+  const note='https://instagram.com/stories/notes.user/\nV+S: 3 sonrası; SClip: ilk saniye\nÖzel istek: kapak, sonra dinle <script>literal</script>';
+  const compactNote='stories/notes.user\nV+S: 3 sonrası; SClip: ilk saniye\nÖzel istek: kapak, sonra dinle <script>literal</script>';
+  await page.click('#notesBtn');assert.equal(await page.locator('#notesDialog').isVisible(),true);
+  assert.equal(await page.evaluate(()=>Math.abs(document.getElementById('notesDialog').getBoundingClientRect().width-innerWidth)<1),true);
+  await page.fill('#notes',note);await page.click('#notesClose');await page.reload();await page.click('#notesBtn');assert.equal(await page.inputValue('#notes'),compactNote);
+  await page.evaluate(()=>window.handleBack());assert.equal(await page.locator('#notesDialog').isVisible(),false);
+  await page.fill('#newLink','https://instagram.com/reel/unfinished');await page.reload();assert.equal(await page.inputValue('#newLink'),'https://instagram.com/reel/unfinished');await page.fill('#newLink','');
+  await page.fill('#links','https://instagram.com/stories/draft.user/1');
+  assert.equal(await page.locator('#copy').evaluate(el=>getComputedStyle(el).opacity),'1');
+  await page.reload();assert.match(await page.inputValue('#links'),/draft.user/);
+  // A fresh document restores the saved draft; Android process death is tested separately.
+  const restored=await context.newPage();await restored.goto(url);assert.match(await restored.inputValue('#links'),/draft.user/);await restored.close();await page.bringToFront();
+  await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x https://instagram.com/stories/draft.user/1 https://instagram.com/reel/pasted/'));
+  await page.click('#paste');await page.waitForFunction(()=>document.getElementById('count').textContent==='2 bağlantı');assert.equal(await page.textContent('#count'),'2 bağlantı');assert.match(await page.inputValue('#links'),/draft.user/);
+  await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('zaten listede'));assert.equal(await page.textContent('#count'),'2 bağlantı');
+  await page.evaluate(()=>navigator.clipboard.writeText('https://example.org/x'));await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('uygun Instagram'));assert.match(await page.textContent('#linkStatus'),/uygun Instagram/);
+  await page.evaluate(()=>navigator.clipboard.writeText(''));await page.click('#paste');await page.waitForFunction(()=>document.getElementById('linkStatus').textContent.includes('Pano boş'));assert.match(await page.textContent('#linkStatus'),/Pano boş/);
   await page.reload();assert.equal(await page.textContent('#count'),'2 bağlantı');
   await page.click('#addCut');
   await page.evaluate(()=>{window.originalWrite=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.writeText=async()=>{throw Error('Test pano hatası');};});
