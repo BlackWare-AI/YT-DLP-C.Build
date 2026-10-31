@@ -97,3 +97,6 @@ main>section{padding-inline:0;border-inline-width:0}
 /* Preserve card and toolbar dimensions while rounding the icon artwork. */
 .mode-symbol>svg{display:block;flex-shrink:0;max-width:100%}
 .history-panel details[open]>summary:after{content:none}
+
+/* Remove only the small frames around the mode artwork, not the mode cards. */
+.mode-grid .mode-symbol{border:0}
