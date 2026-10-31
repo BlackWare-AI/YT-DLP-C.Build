@@ -152,6 +152,10 @@ final class UpdateController {
         Window window=dialog.getWindow();
         if (window!=null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
+            WindowManager.LayoutParams attributes=window.getAttributes();
+            attributes.gravity=Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL;
+            attributes.y=dp(25);
+            window.setAttributes(attributes);
             int width=activity.getResources().getDisplayMetrics().widthPixels-dp(40);
             window.setLayout(width,WindowManager.LayoutParams.WRAP_CONTENT);
         }

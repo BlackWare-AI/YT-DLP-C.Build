@@ -186,14 +186,14 @@ function button(label, icon, action) {
   b.onclick=async()=>{ try { await action(); } catch(e) { $('status').textContent=e.message; alert(e.message); } };
   return b;
 }
-function askConfirm(message,{title='Silme işlemi',accept='Sil'}={}) {
-  const dialog=$('confirmDialog');
+function askConfirm(message,{title='Silme işlemi',accept='Sil',bottom=false}={}) {
+  const dialog=$('confirmDialog');dialog.classList.toggle('bottom-positioned',bottom);
   $('confirmTitle').textContent=title;$('confirmMessage').textContent=message;$('confirmAccept').textContent=accept;
   return new Promise(resolve=>{
     let settled=false;
     const finish=value=>{if(settled)return;settled=true;dialog.close();resolve(value);};
     $('confirmCancel').onclick=()=>finish(false);$('confirmAccept').onclick=()=>finish(true);
-    dialog.addEventListener('close',()=>{if(!settled){settled=true;resolve(false);}},{once:true});
+    dialog.addEventListener('close',()=>{dialog.classList.remove('bottom-positioned');if(!settled){settled=true;resolve(false);}},{once:true});
     dialog.showModal();$('confirmCancel').focus();
   });
 }
@@ -423,7 +423,7 @@ $('notesPaste').onclick=async()=>{
 };
 $('notesClear').onclick=async()=>{
   if(!$('notes').value) return;
-  if(!await askConfirm('Link Notları tamamen silinsin mi? Not Günlüğü ve işlem geçmişi korunur.',{title:'Link Notlarını temizle',accept:'Notları sil'})) return;
+  if(!await askConfirm('Link Notları tamamen silinsin mi? Not Günlüğü ve işlem geçmişi korunur.',{title:'Link Notlarını temizle',accept:'Notları sil',bottom:true})) return;
   if(!flushNotesDailyLog()) return;
   const old=state.notes;state.notes='';$('notes').value='';
   if(!save()) {state.notes=old;$('notes').value=old;renderNotesCount();$('notesStatus').textContent=$('status').textContent;return;}
