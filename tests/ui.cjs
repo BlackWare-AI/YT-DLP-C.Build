@@ -18,6 +18,16 @@ const root=path.resolve(__dirname,'..');
  try{
   const url='http://127.0.0.1:'+server.address().port;
   await page.goto(url);assert.equal(await page.locator('#cuts .cut').count(),0);
+  // UI labels must not start a text selection; editable content stays native.
+  await page.locator('h2').first().dblclick();
+  assert.equal(await page.evaluate(()=>getSelection().toString()),'');
+  for(const selector of ['button','summary','h2','.muted'])
+    assert.ok((await page.locator(selector).evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).userSelect))).every(value=>value==='none'));
+  for(const selector of ['input','textarea','pre'])
+    assert.ok((await page.locator(selector).evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).userSelect))).every(value=>value==='text'));
+  for(const selector of ['button','summary','input','textarea'])
+    assert.ok((await page.locator(selector).evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).webkitTapHighlightColor))).every(value=>value==='rgba(0, 0, 0, 0)'));
+
   const removalContext=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   const removal=await removalContext.newPage();
   await removal.goto(url);
@@ -216,7 +226,7 @@ const root=path.resolve(__dirname,'..');
     const s=getComputedStyle(document.querySelector(selector),'::after');
     return {content:s.content,width:s.width,height:s.height,color:s.backgroundColor};
   }));
-  assert.deepEqual(markers,[{content:'""',width:'6px',height:'6px',color:'rgb(255, 255, 255)'},{content:'""',width:'4.5px',height:'4.5px',color:'rgb(255, 255, 255)'}]);
+  assert.deepEqual(markers,[{content:'""',width:'3px',height:'24px',color:'rgb(255, 255, 255)'},{content:'""',width:'3px',height:'24px',color:'rgb(255, 255, 255)'}]);
   for(const close of ['toggle','back']) {
     await page.click('#historyBtn');
     assert.equal(await page.locator('#historyPanel').isVisible(),true);

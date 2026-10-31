@@ -25,7 +25,7 @@ Yalnızca Kare modu ilk saniyeden bir JPG üretir ve geçici videoyu temizler. S
 
 ## APK editions
 
-Both editions are published under **v1.1.6** in this repository: `YT-DLP-Command-Builder-v1.1.6.apk` (TR) and `YT-DLP-Command-Builder-v1.1.6-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
+Both editions are published under **v1.1.7** in this repository: `YT-DLP-Command-Builder-v1.1.7.apk` (TR) and `YT-DLP-Command-Builder-v1.1.7-EN.apk` (EN). They use separate Android application IDs and local storage, so they can be installed together. Existing Turkish installations update in place.
 
 ## Our goal
 
@@ -108,7 +108,7 @@ The repository contains the Android project, shared web interface, tests, and Gi
 - Debug build: `.github/workflows/android.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Package: `com.blackware.ytdlpcommandbuilder`
-- Current documented version: `1.1.6`
+- Current documented version: `1.1.7`
 
 To build locally, use JDK 17, Android SDK 35, and the project's Gradle configuration:
 
@@ -122,7 +122,7 @@ Press Back twice within two seconds on the main screen to exit. Back first dismi
 
 All modes use `<username>-<YYYYMMDD>-<HHMM>-<counter>.ext`, for example `acikgoztugce-20261025-1419-01.mp4`. Content IDs and mode/cut suffixes are removed. The two-digit `autonumber` advances for each item/section and restarts at 01 per command; different batches can share a filename when account/date/minute/counter match. `--no-overwrites` preserves files with existing names. Missing metadata keeps the existing safe fallbacks.
 
-Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.6-debug`.
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. The Actions artifact is `YT-DLP-Command-Builder-1.1.7-debug`.
 
 Validation commands:
 
