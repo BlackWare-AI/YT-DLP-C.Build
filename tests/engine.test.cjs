@@ -331,12 +331,12 @@ test('daily notes accumulate unique cleaned links, retain deletions and update a
  const first=B.mergeDailyNotes('', 'https://instagram.com/stories/user.a/1?utm_source=x V\nreel/Ab_c S');
  assert.equal(first,'stories/user.a/1 V\nreel/Ab_c S');
  const next=B.mergeDailyNotes(first,'stories/user.a/1 V1s (özel not)\nreel/New V\nreel/New V');
- assert.equal(next,'stories/user.a/1 V1s (özel not)\nreel/Ab_c S\nreel/New V');
+ assert.equal(next,'stories/user.a/1 V1s\nreel/Ab_c S\nreel/New V');
  assert.equal(B.mergeDailyNotes(next,''),next);
  assert.equal(B.mergeDailyNotes(next,'https://www.instagram.com/reel/New/?x=1 V'),next);
  assert.equal(B.mergeDailyNotes(next,next),next);
  assert.equal(B.parseUrls(B.mergeDailyNotes('stories/User.A/1 V','stories/user.a/1 S')).length,1);
- assert.match(B.mergeDailyNotes('','reel/Ab V7 (kesit özel)\nAçıklama ?kalsın'),/V7 \(kesit özel\)\nAçıklama \?kalsın/);
+ assert.equal(B.mergeDailyNotes('','reel/Ab V7 (kesit özel)\nAçıklama ?kalsın'),'reel/Ab V7');
 });
 test('visual group gaps are single rows, stable, and contain no separator characters',()=>{
  const text='stories/a/1 V\nstories/c/3 V\nreel/B V1s\nreel/C S';
@@ -383,4 +383,28 @@ test('Frame rotation metadata preserves displayed dimensions, quality and single
   assert.deepEqual([meta.width,meta.height],angle===180?[96,64]:[64,96]);assert.equal(meta.pix_fmt,'yuvj444p');assert.deepEqual(fs.readFileSync(jpg),f.expected(source,.5));f.clean();
  }
  assert.equal(fs.readFileSync(f.env.FRAME_ENCODINGS,'utf8').trim().split('\n').length,4);
+});
+
+
+test('daily archive excludes prose, arbitrary usernames and unsupported links',()=>{
+ const raw='stories/g\nstories/gg\nYT-DLP Command Builder — Metin Seçimi\nDokunma Efekti Düzeltmesi\nSorunun yalnızca Android Ripple animasyonu olmadığı anlaşılıyor.\nYapılacaklar\nexample.com/test\nhttps://instagram.com.evil/reel/NO V\nhttps://example.com/reel/NO S';
+ assert.equal(B.mergeDailyNotes('',raw),'stories/g\nstories/gg');
+ assert.equal(B.mergeDailyNotes('', 'Video\nSadece\nserbest açıklama'), '');
+ assert.match(B.cleanNotes(raw),/Dokunma Efekti Düzeltmesi/);
+});
+test('daily archive retains format variants and strips inline explanations',()=>{
+ const tags=['V','S','VS','V1','V4S','v1s','V1sec','VxYz','s2A','SClip','V+S','VS1aZ'];
+ for(const tag of tags){
+  assert.equal(B.mergeDailyNotes('', 'https://instagram.com/reel/AB?igsh=x '+tag+' (açıklama)'),'reel/AB '+tag);
+  assert.equal(B.mergeDailyNotes('',tag),tag);
+  assert.equal(B.parseUrls(tag,true).length,0,tag);
+ }
+ assert.equal(B.mergeDailyNotes('', 'stories/a/1 Sadece açıklama'),'stories/a/1');
+});
+test('daily archive re-filters legacy records while preserving links and latest tags',()=>{
+ const old='Başlık burada\nstories/a/1 V (eski açıklama)\nSerbest metin\nreel/B S\nDevam metni';
+ const clean=B.mergeDailyNotes(old,'stories/a/1 VS2s');
+ assert.equal(clean,'stories/a/1 VS2s\nreel/B S');
+ assert.equal(B.mergeDailyNotes(clean,clean),clean);
+ assert.equal(B.mergeDailyNotes('', '(stories/a/1) V (stories/b/2) S'),'stories/a/1 V\nstories/b/2 S');
 });

@@ -189,7 +189,7 @@ const root=path.resolve(__dirname,'..');
   assert.doesNotMatch(await page.locator('[placeholder]').evaluateAll(nodes=>nodes.map(n=>n.placeholder).join('\n')),/[çğıöşüÇĞİÖŞÜ]/);
   await page.evaluate(()=>{
    state.notes='Türkçe notum\nstories/example.user/123 V';
-   state.notesDailyHistory=[{date:'2026-10-27',notes:'Değişmeyen günlük notu'}];
+   state.notesDailyHistory=[{date:'2026-10-27',notes:'stories/archive.user/42 V\nDeğişmeyen günlük notu'}];
    save();hydrate();
   });
   await page.fill('#links','https://instagram.com/stories/example.user');
@@ -216,7 +216,8 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('.history-item').getByRole('button',{name:'Edit again',exact:true}).count(),1);
   await page.click('#notesLogTab');await page.locator('.daily-note-item summary').filter({hasText:'October 27, 2026'}).click();
   assert.match(await page.locator('.daily-note-item summary').filter({hasText:'October 27, 2026'}).innerText(),/October/);
-  assert.equal(await page.locator('.daily-note-item pre').filter({hasText:'Değişmeyen günlük notu'}).innerText(),'Değişmeyen günlük notu');
+  assert.equal(await page.locator('.daily-note-item pre').filter({hasText:'stories/archive.user/42 V'}).innerText(),'stories/archive.user/42 V');
+  assert.doesNotMatch(await page.locator('#notesDailyHistory').innerText(),/Değişmeyen günlük notu/);
   await page.click('#historyBtn');await page.click('#notesBtn');await page.click('#notesClear');
   assert.equal(await page.textContent('#confirmTitle'),'Clear Link Notes');
   assert.equal(await page.locator('#confirmAccept').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(88, 48, 48)');

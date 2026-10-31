@@ -162,7 +162,7 @@ function historyText(records) {
     (h.snapshot ? JSON.stringify(h.snapshot.settings,null,2)+'\nÖğe seçimi: '+JSON.stringify(h.snapshot.selection || {})+'\nKesitler: '+JSON.stringify(h.snapshot.cuts)+'\n' : '')+h.command).join('\n\n');
 }
 function allHistoryText() {
-  const notes=state.notesDailyHistory.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(record=>{
+  const notes=state.notesDailyHistory.map(record=>({...record,notes:Builder.mergeDailyNotes('',record.notes)})).filter(record=>record.notes).sort((a,b)=>b.date.localeCompare(a.date)).map(record=>{
     const [year,month,day]=record.date.split('-').map(Number);
     return new Date(year,month-1,day).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+
       ' | '+Builder.countNoteLinks(record.notes||'')+' bağlantı'+'\n'+(record.notes||'');
@@ -240,7 +240,7 @@ function showHistory() {
 }
 function showNotesDailyHistory() {
   const root=$('notesDailyHistory');root.textContent='';
-  const records=state.notesDailyHistory.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const records=state.notesDailyHistory.map(record=>({...record,notes:Builder.mergeDailyNotes('',record.notes)})).filter(record=>record.notes).sort((a,b)=>b.date.localeCompare(a.date));
   if(!records.length) {root.textContent='Henüz not günlüğü kaydı yok.';return;}
   for(const record of records) {
     const section=document.createElement('details');section.className='daily-note-item';

@@ -54,14 +54,14 @@
     return start + ':' + (end === null ? '' : end);
   }
   // Clean only Instagram URL tokens, preserving all surrounding free-form notes.
-  const formatOnlyLine = /^(?:v(?:\+\s*s|\d+(?:s|sec)?|\d+s?)?|s(?:clip)?)(?:\s*[:(].*)?$/i;
+  const formatOnlyLine = /^(?:v\+\s*s|v\d+(?:s|sec)?|sclip|vs[a-z0-9]{0,3}|[vs][a-z0-9]{0,3})(?:\s*[:(].*)?$/i;
   const bareUsernameLine = /^(\s*)@?([a-z0-9._]{1,30})(.*)$/i;
   function normalizeBareUsernames(text) {
     return String(text).replace(/^([^\r\n]*)$/gm, line => {
       const match = line.match(bareUsernameLine);
       if (!match || formatOnlyLine.test(match[2]) || match[2].startsWith('.') || match[2].endsWith('.') || match[2].includes('..')) return line;
       const suffix=match[3];
-      if (suffix && !/^\s+(?:v\+\s*s|v\d+(?:s|sec)?|v\d+s|v|sclip|s)(?:\b|(?=\())/i.test(suffix)) return line;
+      if (suffix && !/^\s+(?:v\+\s*s|[vs][a-z0-9]*)(?:\b|(?=\())/i.test(suffix)) return line;
       return match[1] + 'https://www.instagram.com/stories/' + match[2] + suffix;
     });
   }
@@ -115,20 +115,35 @@
     if(!urls.length) return null;
     return urls[0].replace(/(\/stories\/)([^/]+)/i,(_,prefix,user)=>prefix+user.toLowerCase());
   }
+  // Archive only explicit Instagram routes and format tags; editor prose stays in notes.
+  function dailyNoteRows(text) {
+    const rows=[];
+    const tag=/^(?:v\+\s*s|v\d+(?:s|sec)?|sclip|vs[a-z0-9]{0,3}|[vs][a-z0-9]{0,3})(?=$|[\s(:])/i;
+    for(const line of cleanNoteUrls(text || '').split(/\r?\n/)) {
+      const value=line.trim();
+      const route=value.match(/^\(?((?:stories\/[a-z0-9._]+(?:\/\d+)?|(?:reel|p|tv)\/[a-z0-9_-]+))\/?\)?(?=$|[\s,;])/i);
+      if(route && noteLink(route[1])) {
+        const annotation=value.slice(route[0].length).trim().match(tag);
+        rows.push(route[1]+(annotation ? ' '+annotation[0].replace(/\s+/g,'') : ''));
+      } else {
+        const annotation=value.match(tag);
+        if(annotation && annotation[0].length===value.length) rows.push(value.replace(/\s+/g,''));
+      }
+    }
+    return rows;
+  }
   function mergeDailyNotes(previous,current) {
     const entries=new Map();
     for(const text of [previous,current]) {
       let item=null;
-      for(const line of cleanNotes(text || '').split(/\r?\n/)) {
+      for(const line of dailyNoteRows(text)) {
         const link=noteLink(line);
         if(link) {
-          item={key:link,lines:[line.trim()]};
+          item={key:link,lines:[line]};
           // Map insertion order keeps the first position; the newest annotation wins.
           entries.set(link,item);
-        } else if(line.trim()) {
-          if(item) item.lines.push(line);
-          else entries.set('text:'+line.trim(),{lines:[line]});
-        }
+        } else if(item) item.lines.push(line);
+        else entries.set('tag:'+line.toLowerCase(),{lines:[line]});
       }
     }
     return groupTaggedNotes(Array.from(entries.values(),item=>item.lines.join('\n')).join('\n')).trim();

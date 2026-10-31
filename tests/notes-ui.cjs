@@ -37,7 +37,7 @@ const root=path.resolve(__dirname,'..');
    assert.equal((await log()).split('\n').length,4);assert.doesNotMatch(await log(),/utm_source|- -/);
    await page.fill('#notes','stories/user.a/1 V7 (özel etiket)\nreel/New S');
    await page.clock.runFor(800);await page.click('#notesClose');
-   let merged=await log();assert.match(merged,/user.a\/1 V7 \(özel etiket\)/);assert.match(merged,/reel\/B S/);assert.match(merged,/reel\/New S/);
+   let merged=await log();assert.match(merged,/user.a\/1 V7/);assert.doesNotMatch(merged,/özel etiket/);assert.match(merged,/reel\/B S/);assert.match(merged,/reel\/New S/);
    assert.equal((merged.match(/stories\/user.a\/1/g)||[]).length,1);
    assert.equal(await page.evaluate(()=>state.notesDailyHistory.length),1);
    await page.click('#notesBtn');
@@ -95,6 +95,17 @@ const root=path.resolve(__dirname,'..');
    await visual.waitForFunction(()=>document.querySelectorAll('.notes-group-divider').length===2);
    fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    await visual.screenshot({path:path.join(root,'test-results/notes-114-'+edition+'.png')});
+   // Old logs are filtered in the viewer too; the editable note is not trimmed.
+   const draft='reel/AB V\nKullanıcının serbest açıklaması korunur.';
+   await visual.fill('#notes',draft);await visual.locator('#notes').blur();
+   assert.equal(await visual.inputValue('#notes'),draft);
+   await visual.click('#notesClose');await visual.click('#historyBtn');await visual.click('#notesLogTab');
+   await visual.evaluate(()=>{state.notesDailyHistory=[{date:'2026-10-20',notes:'Başlık burada\nstories/legacy.user/7 VS2s (açıklama)\nSerbest metin'}];showNotesDailyHistory();});
+   await visual.locator('.daily-note-item>summary').click();
+   assert.equal(await visual.locator('.daily-note-item pre').textContent(),'stories/legacy.user/7 VS2s');
+   assert.equal(await visual.locator('.daily-note-item>summary').evaluate(el=>getComputedStyle(el,'::after').content),'none');
+   assert.match(await visual.evaluate(()=>state.notesDailyHistory[0].notes),/Serbest metin/);
+   assert.doesNotMatch(await visual.evaluate(()=>allHistoryText()),/Başlık burada|Serbest metin/);
    assert.deepEqual(errors,[]);await context.close();
    console.log('PASS '+edition+': cumulative unique notes, latest annotations, retained deletions, independent commands, no-op saves, dated draft recovery and non-copyable one-row dividers');
   }
