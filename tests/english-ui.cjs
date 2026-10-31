@@ -117,10 +117,11 @@ const root=path.resolve(__dirname,'..');
   assert.equal(await page.locator('.history-item').getByRole('button',{name:/TXT/}).count(),0);
   assert.equal(await recordActions.nth(1).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#copy svg').evaluate(el=>el.innerHTML));
   assert.equal(await recordActions.nth(2).locator('svg').evaluate(el=>el.innerHTML),await page.locator('#notesClear svg').evaluate(el=>el.innerHTML));
-  const iconFamily=await page.locator('#paste svg,#notesPaste svg,#copy svg,#notesClear svg,.history-item-actions svg').evaluateAll(nodes=>nodes.map(svg=>{
+  const iconFamily=await page.locator('#paste svg,#notesPaste svg,#notesClear svg,.history-item-actions svg').evaluateAll(nodes=>nodes.map(svg=>{
     const style=getComputedStyle(svg);return {width:parseFloat(style.width),height:parseFloat(style.height),stroke:svg.getAttribute('stroke-width'),cap:svg.getAttribute('stroke-linecap'),join:svg.getAttribute('stroke-linejoin')};
   }));
   assert.ok(iconFamily.every(icon=>icon.width===20&&icon.height===20&&icon.stroke==='1.5'&&icon.cap==='round'&&icon.join==='round'));
+  assert.equal(await page.locator('#copy svg').evaluate(svg=>parseFloat(getComputedStyle(svg).width)),30);
   assert.equal(await recordActions.nth(1).locator('rect').getAttribute('rx'),'3');
   for(const width of [320,390,650]) {
     await page.setViewportSize({width,height:844});
