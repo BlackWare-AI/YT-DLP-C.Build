@@ -92,7 +92,7 @@ main>section{padding-inline:0;border-inline-width:0}
 
 /* Keep the selection marker inside the gap between the symbol and card edge. */
 .engine-group button{padding-right:20px}
-.engine-group button.active:after,.mode-grid button.active:after{top:50%;right:3px;width:3px;height:24px;border-radius:3px;transform:translateY(-50%)}
+.engine-group button.active:after,.mode-grid button.active:after{top:50%;right:6px;width:3px;height:24px;border-radius:3px;transform:translateY(-50%)}
 
 /* Preserve card and toolbar dimensions while rounding the icon artwork. */
 .mode-symbol>svg{display:block;flex-shrink:0;max-width:100%}
