@@ -101,7 +101,6 @@ main>section{padding-inline:0;border-inline-width:0}
 /* Remove only the small frames around the mode artwork, not the mode cards. */
 .mode-grid .mode-symbol{border:0}
 
-
 /* Keep the copy glyph centered while rendering its artwork at the approved 30 px size. */
 #copy .mode-symbol{width:40px;height:40px}
 #copy .copy-icon{width:30px;height:30px}
